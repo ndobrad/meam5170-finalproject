@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<robot name="acrobot">
+   <link name="base" />
+   <link name="base_x" />
+   <link name="base_xz" />
+   <link name="red_link">
+      <visual>
+         <geometry>
+            <cylinder length="1.5" radius="0.05" />
+         </geometry>
+         <origin xyz="0 0 -0.75" />
+         <material name="red">
+            <color rgba="1 0 0 1" />
+         </material>
+      </visual>
+   </link>
+   <link name="blue_link">
+      <visual>
+         <geometry>
+            <cylinder length="1.5" radius="0.05" />
+         </geometry>
+         <origin xyz="0 0 -0.75" />
+         <material name="blue">
+            <color rgba="0 0 1 1" />
+         </material>
+      </visual>
+   </link>
+
+   <joint name="elbow_joint" type="continuous">
+      <parent link="red_link" />
+      <child link="blue_link" />
+      <origin xyz="0 0 -1.5" />
+      <axis xyz="0 1 0" />
+      <limit effort="500" />
+   </joint>
+   <transmission name="elbow_trans" type="SimpleTransmission">
+      <actuator name="elbow_torque" />
+      <joint name="elbow_joint" />
+      <mechanicalReduction>1</mechanicalReduction>
+   </transmission>
+
+
+   <joint name="planar_x" type="prismatic">
+      <parent link="base" />
+      <child link="base_x" />
+      <axis xyz="1 0 0" />
+   </joint>
+   <joint name="planar_z" type="prismatic">
+      <parent link="base_x" />
+      <child link="base_xz" />
+      <axis xyz="0 0 1" />
+   </joint>
+   <joint name="planar_roty" type="continuous">
+      <parent link="base_xz" />
+      <child link="red_link" />
+      <axis xyz="0 -1 0" />
+   </joint>
+</robot>
