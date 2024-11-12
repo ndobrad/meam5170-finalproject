@@ -23,7 +23,8 @@
 				"ms-python.python",
 				"ms-python.vscode-pylance",
 				"ms-python.debugpy",
-				"ms-toolsai.datawrangler"
+				"ms-toolsai.datawrangler",
+				"morningfrog.urdf-visualizer"
 			]
 		}
 	}
