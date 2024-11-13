@@ -31,14 +31,13 @@
       <child link="blue_link" />
       <origin xyz="0 0 -1.5" />
       <axis xyz="0 1 0" />
-      <limit effort="500" />
+      <limit effort="500" lower="-3.14159" upper="3.14159" />
    </joint>
    <transmission name="elbow_trans" type="SimpleTransmission">
       <actuator name="elbow_torque" />
       <joint name="elbow_joint" />
       <mechanicalReduction>1</mechanicalReduction>
    </transmission>
-
 
    <joint name="planar_x" type="prismatic">
       <parent link="base" />
@@ -55,4 +54,9 @@
       <child link="red_link" />
       <axis xyz="0 -1 0" />
    </joint>
+   <collision_filter_group name="robot_links">
+      <member link="red_link" />
+      <member link="blue_link" />
+      <ignored_collision_filter_group collision_filter_group="robot_links" />
+   </collision_filter_group>
 </robot>
