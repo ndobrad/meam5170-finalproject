@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <robot name="acrobot">
    <link name="base" />
-   <link name="base_x" />
-   <link name="base_xz" />
+   <!-- <link name="base_x" />
+   <link name="base_xz" /> -->
    <link name="red_link">
       <visual>
          <geometry>
