@@ -39,7 +39,7 @@
       <mechanicalReduction>1</mechanicalReduction>
    </transmission>
 
-   <joint name="planar_x" type="prismatic">
+   <!-- <joint name="planar_x" type="prismatic">
       <parent link="base" />
       <child link="base_x" />
       <axis xyz="1 0 0" />
@@ -51,6 +51,11 @@
    </joint>
    <joint name="planar_roty" type="continuous">
       <parent link="base_xz" />
+      <child link="red_link" />
+      <axis xyz="0 -1 0" />
+   </joint> -->
+   <joint name="planar_roty" type="continuous">
+      <parent link="base" />
       <child link="red_link" />
       <axis xyz="0 -1 0" />
    </joint>
