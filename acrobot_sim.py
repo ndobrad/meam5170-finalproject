@@ -3,8 +3,6 @@ from acrobot import Acrobot
 from scipy.integrate import solve_ivp
 
 def simulate_acrobot(x0, tf, acrobot:Acrobot, use_mpc=False):
-    # Simulates a stabilized maneuver on the 2D quadrotor
-    # system, with an initial value of x0
     t0 = 0.0
     dt = 1e-2
 

@@ -1,12 +1,13 @@
 import numpy as np
 from pydrake.multibody.plant import MultibodyPlant
+from pydrake.all import DiagramBuilder, AddMultibodyPlantSceneGraph, SceneGraph
 from manipulator_dynamics import ManipulatorDynamics
 
 
 class Acrobot(object):
     def __init__(self, plant: MultibodyPlant, Q, R, Qf):
-        # self.l1 = 5
-        # self.l2 = 5
+        self.l1 = 1.5
+        self.l2 = 1.5
         # self.l1c = 2.5
         # self.l2c = 2.5
         # self.m1 = 2
@@ -15,11 +16,17 @@ class Acrobot(object):
         # self.I2 = ???
         
         self.plant = plant
-        
+        # builder = DiagramBuilder()
+        # self.plant, self.scenegraph = AddMultibodyPlantSceneGraph(builder,plant)
+        # diagram = builder.Build()
+        # sg_context = self.scenegraph.GetMyMutableContextFromRoot(diagram.CreateDefaultContext())
+        # query_object = self.scenegraph.get_query_output_port().Eval(sg_context)
+        # inspector = query_object.inspector()
+                   
         self.n_q = 2
         self.n_x = self.n_q * 2
         self.n_u = 1
-        pass
+        
     
     def continuous_time_full_dynamics(self, x, u):
         q = x[:self.n_q]

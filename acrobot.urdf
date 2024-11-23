@@ -13,6 +13,10 @@
             <color rgba="1 0 0 1" />
          </material>
       </visual>
+      <inertial>
+         <origin xyz="0 0 -0.75" />
+         <mass value="1" />
+      </inertial>
    </link>
    <link name="blue_link">
       <visual>
@@ -24,6 +28,10 @@
             <color rgba="0 0 1 1" />
          </material>
       </visual>
+      <inertial>
+         <origin xyz="0 0 -0.75" />
+         <mass value="1" />
+      </inertial>
    </link>
 
    <joint name="elbow_joint" type="continuous">
