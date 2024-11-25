@@ -2,6 +2,8 @@
 Defines the 2D environment for the brachiating robot, as well as functions to generate simple environment types.
 """
 
+import matplotlib.pyplot as plt
+
 class Hold:
     def __init__(self, position, is_latched=False, is_dynamic=False, movement_type=None, movement_params=None):
         """
@@ -14,9 +16,6 @@ class Hold:
         """
         self.position = position
         self.is_latched = is_latched
-        # TODO: how to handle weight transfer? 
-        # pass in separate vector to be used if dynamic? 
-        # concurrent updates of both holds or global state?
         self.is_dynamic = is_dynamic
         self.movement_type = movement_type
         self.movement_params = movement_params
@@ -33,7 +32,7 @@ class Hold:
 
 
 class Environment:
-    def __init__(self, xmin, xmax, ymin, ymax, grasp_radius):
+    def __init__(self, xmin=0.0, xmax=0.0, ymin=0.0, ymax=0.0, grasp_radius=None):
         """
         Args:
             xmin (float): grid boundary
@@ -48,15 +47,25 @@ class Environment:
         self.ymax = ymax
         self.grasp_radius = grasp_radius
         self.holds = []
+        self.start_idx = None
+        self.goal_idx = None
     
-    def update_holds(self, timestep):
+    def add_hold(self, x, y, is_dynamic=False, movement_type=None, movement_params=None):
+        """
+        helper function to add a hold to an environment
+        """
+        self.holds.append(Hold((x, y), False, is_dynamic, movement_type, movement_params))
+
+    
+    def update_hold(self, timestep, velocity):
         """
         Args:
             timestep (float): dt (sec) for update
+            velocity (tuple): (x, y) float values of robot velocity
         Returns:
             None, holds are updated in place
         """
-        # TODO: update holds which are latched
+        # TODO: update hold which is latched
         pass
 
     def generate_static_monkey_bars(self, num_holds, spacing):
@@ -69,15 +78,24 @@ class Environment:
             Returns:
                 None, environment is generated in place
             """
-            # TODO: generate environment
-            pass
+            buffer = 3 * spacing
+            self.xmin = 0
+            self.xmax = num_holds * spacing + (2 * buffer)
+            self.ymin = 0
+            self.ymax = 2*buffer
+            for i in range(num_holds):
+                x = buffer + (i * spacing)
+                y = buffer
+                self.add_hold(x, y)
+            self.start_idx = 0
+            self.goal_idx = num_holds - 1
 
     def generate_static_random(self, grid_bounds, start, goal, num_holds, spacing):
             """
             Args:
                 grid_bounds (tuple): (xmin, xmax, ymin, ymax) float values for grid boundary
-                start (tuple): (x, y) float values of starting hold
-                goal (tuple): (x, y) float values of target hold
+                start (tuple): (x, y) float values of starting hold position
+                goal (tuple): (x, y) float values of target hold position
                 num_holds (int): number of holds
                 spacing (float): maximum space (m) between any two holds
             Returns:
@@ -86,6 +104,37 @@ class Environment:
             # TODO: generate environment with seed
             pass
     
-    def visualize(self):
+    def plot(self, path):
         #  TODO: plot simple graph of environment
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for i, hold in enumerate(self.holds):
+            x, y = hold.position
+            if hold.is_latched:
+                cm = 'mo'
+                label = None
+            elif i == self.start_idx:
+                cm = 'cs'
+                label = "Start"
+            elif i == self.goal_idx:
+                cm = 'gs'
+                label = "Goal"
+            else:
+                 cm = 'ko'
+                 label = None
+            ax.plot(x, y, cm, label=label)
+        ax.set_xlim(self.xmin, self.xmax)
+        ax.set_ylim(self.ymin, self.ymax)
+        ax.set_title("Grid")
+        ax.set_xlabel("X (m)")
+        ax.set_ylabel("Y (m)")
+        ax.legend()
+        ax.grid(True)
+        plt.savefig(path)
         pass
+
+# test plotting
+env = Environment()
+env.generate_static_monkey_bars(10, 1)
+env.holds[3].is_latched = True
+path = "./env_plot/monkey_bar_test.png"
+env.plot(path)
