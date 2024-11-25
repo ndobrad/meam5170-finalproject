@@ -39,12 +39,14 @@ class Acrobot(object):
         v = x[self.n_q:self.n_x]
         (M, Cv, tauG, B, tauExt) = ManipulatorDynamics(self.plant, q, v)
         M_inv = np.linalg.inv(M)
-        v_dot = M_inv @ (B @ u + tauG - Cv)
-        return np.hstack((x[-self.n_q:], v_dot))
+        v_dot = M_inv @ (B @ u + tauG - Cv + tauExt)
+        return np.hstack((v, v_dot))
 
     
     def continuous_time_linear_dynamics(self):
         #need to linearize around x, u? Use partial feedback linearization?
+        #linearizing around some trajectory? but then how to find traj (MPC)?
+        #linearize around current x?
         pass
 
     def partial_feedback_linearization(self):
