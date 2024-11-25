@@ -14,6 +14,8 @@ class AcrobotVisualizer:
         self.env = env
         self.acrobot = acrobot
         
+        self.hold_visuals = []
+        
         # self.l1 = acrobot.plant.GetRigidBodyByName("red_link")
         
         self.red_link = np.vstack(
@@ -39,11 +41,11 @@ class AcrobotVisualizer:
             facecolor=[0, 0, 1]
         )
         
+        self._draw_environment()
         
         
     def draw(self, x, t):
-        self._draw_environment()
-        
+        # self._draw_environment
         R = np.array([
             [np.cos(-np.pi/2 + x[0]), -np.sin(-np.pi/2 + x[0])],
             [np.sin(-np.pi/2 + x[0]), np.cos(-np.pi/2 + x[0])],
@@ -74,7 +76,22 @@ class AcrobotVisualizer:
     def _draw_environment(self):
         # for each hold in self.env
         #   self._draw_hold(hold)
-        pass
+        for h in self.env.holds:
+            a = np.linspace(0, 2 * np.pi, 50)
+            hold_points = np.vstack(
+                (
+                    self.env.grasp_radius * (1 + np.cos(a)),
+                    self.env.grasp_radius * np.sin(a),
+                )
+            )
+            
+            new_hold = self.ax.fill(
+                hold_points[0, :], hold_points[0, :], zorder=0, edgecolor="k",
+                facecolor=[0, 1, 0])
+            new_hold[0].get_path().vertices[:, 0] = h.position[0]
+            new_hold[0].get_path().vertices[:, 1] = h.position[1]
+            self.hold_visuals.append(new_hold)
+
     
 
 

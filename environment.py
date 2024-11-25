@@ -1,6 +1,7 @@
 """
 Defines the 2D environment for the brachiating robot, as well as functions to generate simple environment types.
 """
+import numpy as np
 
 class Hold:
     def __init__(self, position, is_latched=False, is_dynamic=False, movement_type=None, movement_params=None):
@@ -58,6 +59,10 @@ class Environment:
         """
         # TODO: update holds which are latched
         pass
+    
+    def generate_single_hold(self, acrobot_full_length):
+        new_hold = Hold(np.array([acrobot_full_length/2, acrobot_full_length/2]),is_dynamic=False)
+        self.holds.append(new_hold)
 
     def generate_static_monkey_bars(self, num_holds, spacing):
             """
