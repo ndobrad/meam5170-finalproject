@@ -81,10 +81,11 @@ class MPCController(Controller):
 class TrivialPathPlanner(PathPlanner):
     """
     'Plans' a path from the initial position to the first Hold 
-    in the environment, which should be within reach
+    in the environment, which should be within reach (assume that the
+    environment only contains one hold besides the initial hold)
     """
-    def calculate_path(self, env: Environment) -> np.ndarray:
-        return np.array(env.holds[0])
+    def calculate_path(self, start_hold_index, goal_point=None) -> np.ndarray:
+        return np.array([self.env.start_idx, self.env.goal_idx])
     
     
     

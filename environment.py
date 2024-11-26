@@ -16,7 +16,7 @@ class Hold:
             movement_type (str, optional): how the hold moves on contact if dynamic, e.g. linear, oscillating, defaults to None
             movement_params (list, optional): parameters for movement type, e.g. direction, speed, defaults to None
         """
-        self.position = position
+        self.position = np.array(position)
         self.size = size
         self.is_latched = is_latched
         self.is_dynamic = is_dynamic
@@ -35,7 +35,7 @@ class Hold:
 
 
 class Environment:
-    def __init__(self, xmin=0.0, xmax=0.0, ymin=0.0, ymax=0.0, grasp_radius=None):
+    def __init__(self, xmin=0.0, xmax=0.0, ymin=0.0, ymax=0.0, grasp_radius=None, initial_hold=None):
         """
         Args:
             xmin (float): grid boundary
@@ -50,9 +50,13 @@ class Environment:
         self.ymax = ymax
         self.grasp_radius = grasp_radius
 
-        self.holds = [Hold((0,0), self.grasp_radius)]
+        self.holds = []
         self.start_idx = None
         self.goal_idx = None
+        
+        if initial_hold is not None:
+            self.holds.append(Hold(initial_hold,self.grasp_radius))
+            self.start_idx = len(self.holds) - 1
 
     
     def add_hold(self, x, y, is_dynamic=False, movement_type=None, movement_params=None):
@@ -73,10 +77,10 @@ class Environment:
         # TODO: update hold which is latched
         pass
     
-    def generate_single_hold(self, acrobot_full_length):
-        new_hold = Hold(np.array([acrobot_full_length/2, acrobot_full_length/2]), 
-                        self.grasp_radius, is_dynamic=False)
+    def generate_single_hold(self, pos:np.ndarray):
+        new_hold = Hold(pos, self.grasp_radius, is_dynamic=False)
         self.holds.append(new_hold)
+        self.goal_idx = len(self.holds) - 1
 
     def generate_static_monkey_bars(self, num_holds, spacing):
             """
@@ -142,9 +146,10 @@ class Environment:
         plt.savefig(path)
         pass
 
-# test plotting
-env = Environment()
-env.generate_static_monkey_bars(10, 1)
-env.holds[3].is_latched = True
-path = "./env_plot/monkey_bar_test.png"
-env.plot(path)
+if __name__ == "__main__":
+    # test plotting
+    env = Environment()
+    env.generate_static_monkey_bars(10, 1)
+    env.holds[3].is_latched = True
+    path = "./env_plot/monkey_bar_test.png"
+    env.plot(path)

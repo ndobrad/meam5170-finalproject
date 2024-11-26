@@ -21,9 +21,15 @@ class Controller(ABC):
     
     
 class PathPlanner(ABC):
-    def __init__(self) -> None:
+    def __init__(self, env:Environment) -> None:
         super().__init__()
+        self.env = env
         
     @abstractmethod
-    def calculate_path(self, env:Environment) -> np.ndarray:
+    def calculate_path(self, start_hold_index, goal_hold_index) -> np.ndarray:
+        """
+        Returns an array of indices into the Environment's list of Holds, 
+        in the order they should be visited, starting with the Hold the Acrobot
+        is initially attached to.
+        """
         pass
