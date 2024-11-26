@@ -14,6 +14,8 @@ class AcrobotVisualizer:
         self.env = env
         self.acrobot = acrobot
         
+        self.hold_visuals = dict()
+        
         # self.l1 = acrobot.plant.GetRigidBodyByName("red_link")
         
         self.red_link = np.vstack(
@@ -28,6 +30,13 @@ class AcrobotVisualizer:
                 0.02 * np.array([1, 1, -1, -1, 1])
             )
         )
+        a = np.linspace(0, 2 * np.pi, 50)
+        self.hold_points = np.vstack(
+            (
+                self.env.grasp_radius * (np.cos(a)),
+                self.env.grasp_radius * np.sin(a),
+            )
+        )
         
         
         self.red_link_fill = self.ax.fill(
@@ -39,11 +48,11 @@ class AcrobotVisualizer:
             facecolor=[0, 0, 1]
         )
         
+        self._setup_environment()
         
         
-    def draw(self, x, t):
-        self._draw_environment()
-        
+    def draw(self, x, t, origin_offset=None, stance=None):
+        # self._draw_environment()
         R = np.array([
             [np.cos(-np.pi/2 + x[0]), -np.sin(-np.pi/2 + x[0])],
             [np.sin(-np.pi/2 + x[0]), np.cos(-np.pi/2 + x[0])],
@@ -71,10 +80,25 @@ class AcrobotVisualizer:
     def _draw_hold(self, hold:Hold):
         pass
     
-    def _draw_environment(self):
+    def _setup_environment(self):
         # for each hold in self.env
         #   self._draw_hold(hold)
-        pass
+        for hi in range(len(self.env.holds)):
+        # for h in self.env.holds:
+
+            hold_fill = self.ax.fill(
+                self.hold_points[0, :], self.hold_points[0, :], zorder=0, edgecolor="k",
+                facecolor=[0, 0.6, 0])
+            
+            hold_fill[0].get_path().vertices[:, 0] = self.hold_points[0,:] + self.env.holds[hi].position[0]
+            hold_fill[0].get_path().vertices[:, 1] = self.hold_points[1,:] + self.env.holds[hi].position[1]
+            self.hold_visuals[hi] = hold_fill
+            
+            
+    def _update_environment(self):
+        for hi in range(len(self.env.holds)):
+            self.hold_visuals[hi][0].get_path().vertices[:, 0] = self.hold_points[0,:] + self.env.holds[hi].position[0]
+            self.hold_visuals[hi][0].get_path().vertices[:, 1] = self.hold_points[1,:] + self.env.holds[hi].position[1]
     
 
 

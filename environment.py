@@ -1,20 +1,23 @@
 """
 Defines the 2D environment for the brachiating robot, as well as functions to generate simple environment types.
 """
+import numpy as np
 
 import matplotlib.pyplot as plt
 
 class Hold:
-    def __init__(self, position, is_latched=False, is_dynamic=False, movement_type=None, movement_params=None):
+    def __init__(self, position, size, is_latched=False, is_dynamic=False, movement_type=None, movement_params=None):
         """
         Args:
             position (tuple): the (x, y) position of the hold
+            size (double): the radius of the graspable area of the hold
             is_latched (bool): whether the robot is latched onto the hold
             is_dynamic (bool, optional): whether the hold is dynamic, defaults to False
             movement_type (str, optional): how the hold moves on contact if dynamic, e.g. linear, oscillating, defaults to None
             movement_params (list, optional): parameters for movement type, e.g. direction, speed, defaults to None
         """
         self.position = position
+        self.size = size
         self.is_latched = is_latched
         self.is_dynamic = is_dynamic
         self.movement_type = movement_type
@@ -39,16 +42,18 @@ class Environment:
             xmax (float): grid boundary
             ymin (float): grid boundary
             ymax (float): grid boundary
-            grasp_radius: radius around hold within which end effector can latch
+            grasp_radius: default radius around each hold within which end effector can latch
         """
         self.xmin = xmin
         self.xmax = xmax
         self.ymin = ymin
         self.ymax = ymax
         self.grasp_radius = grasp_radius
-        self.holds = []
+
+        self.holds = [Hold((0,0), self.grasp_radius)]
         self.start_idx = None
         self.goal_idx = None
+
     
     def add_hold(self, x, y, is_dynamic=False, movement_type=None, movement_params=None):
         """
@@ -67,6 +72,11 @@ class Environment:
         """
         # TODO: update hold which is latched
         pass
+    
+    def generate_single_hold(self, acrobot_full_length):
+        new_hold = Hold(np.array([acrobot_full_length/2, acrobot_full_length/2]), 
+                        self.grasp_radius, is_dynamic=False)
+        self.holds.append(new_hold)
 
     def generate_static_monkey_bars(self, num_holds, spacing):
             """
