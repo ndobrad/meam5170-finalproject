@@ -3,11 +3,6 @@ from pydrake.multibody.plant import MultibodyPlant
 from pydrake.all import DiagramBuilder, AddMultibodyPlantSceneGraph, SceneGraph
 from manipulator_dynamics import ManipulatorDynamics
 
-from pydrake.solvers import MathematicalProgram, Solve, OsqpSolver
-import pydrake.symbolic as sym
-from pydrake.all import MonomialBasis, OddDegreeMonomialBasis, Variables
-
-
 class Acrobot(object):
     def __init__(self, plant: MultibodyPlant):
         self.l1 = 1.5
@@ -33,13 +28,33 @@ class Acrobot(object):
         
         self.umin = -10000
         self.umax = 10000
+        
+    def reset_map(self, x):
+        """
+        Returns a state that represents a system in state x that has just
+        switched from being attached at the "shoulder" to being attached 
+        at the "hand." 
+        """
+        #TODO: fix this, doesn't work
+        A = np.array([[-1,-1, 0, 0],
+                      [ 0,-1, 0, 0],
+                      [ 0, 0,-1,-1],
+                      [ 0, 0, 0,-1]])
+        
+        b = np.array([np.pi/2,
+                      0,
+                      0,
+                      0])
+        
+        return A @ x + b
 
     def continuous_time_full_dynamics(self, x, u):
         q = x[:self.n_q]
         v = x[self.n_q:self.n_x]
         (M, Cv, tauG, B, tauExt) = ManipulatorDynamics(self.plant, q, v)
-        M_inv = np.linalg.inv(M)
-        v_dot = M_inv @ (B @ u + tauG - Cv + tauExt)
+        # M_inv = np.linalg.inv(M)
+        # v_dot = M_inv @ (B @ u + tauG - Cv + tauExt)        
+        v_dot = np.linalg.solve(M, (B @ u + tauG - Cv + tauExt))
         return np.hstack((v, v_dot))
 
     
@@ -57,3 +72,8 @@ class Acrobot(object):
         Ad = np.identity(self.n_x) + A * T
         Bd = B * T
         return Ad, Bd
+
+    def get_tip_position(self, x):
+        xpos = self.l1 * np.sin(x[0]) + self.l2 * np.sin(x[0] + x[1])
+        ypos = -(self.l1 * np.cos(x[0]) + self.l2 * np.cos(x[0] + x[1]))
+        return (xpos, ypos)

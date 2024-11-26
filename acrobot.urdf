@@ -36,6 +36,12 @@
       </inertial>
    </link>
 
+   <joint name="shoulder" type="continuous">
+      <parent link="base" />
+      <child link="red_link" />
+      <axis xyz="0 -1 0" />
+      <dynamics damping="0.1" />
+   </joint>
    <joint name="elbow_joint" type="revolute">
       <parent link="red_link" />
       <child link="blue_link" />
@@ -50,27 +56,6 @@
       <mechanicalReduction>1</mechanicalReduction>
    </transmission>
 
-   <!-- <joint name="planar_x" type="prismatic">
-      <parent link="base" />
-      <child link="base_x" />
-      <axis xyz="1 0 0" />
-   </joint>
-   <joint name="planar_z" type="prismatic">
-      <parent link="base_x" />
-      <child link="base_xz" />
-      <axis xyz="0 0 1" />
-   </joint>
-   <joint name="planar_roty" type="continuous">
-      <parent link="base_xz" />
-      <child link="red_link" />
-      <axis xyz="0 -1 0" />
-   </joint> -->
-   <joint name="planar_roty" type="continuous">
-      <parent link="base" />
-      <child link="red_link" />
-      <axis xyz="0 -1 0" />
-      <dynamics damping="0.1" />
-   </joint>
    <collision_filter_group name="robot_links">
       <member link="red_link" />
       <member link="blue_link" />
