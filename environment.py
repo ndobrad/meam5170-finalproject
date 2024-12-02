@@ -35,7 +35,7 @@ class Hold:
 
 
 class Environment:
-    def __init__(self, xmin=0.0, xmax=0.0, ymin=0.0, ymax=0.0, grasp_radius=None, initial_hold=None):
+    def __init__(self, xmin=0.0, xmax=0.0, ymin=0.0, ymax=0.0, grasp_radius=0.15, initial_hold=None):
         """
         Args:
             xmin (float): grid boundary
@@ -59,11 +59,11 @@ class Environment:
             self.start_idx = len(self.holds) - 1
 
     
-    def add_hold(self, x, y, is_dynamic=False, movement_type=None, movement_params=None):
+    def add_hold(self, position, size, is_dynamic=False, movement_type=None, movement_params=None):
         """
         helper function to add a hold to an environment
         """
-        self.holds.append(Hold((x, y), False, is_dynamic, movement_type, movement_params))
+        self.holds.append(Hold(position, size, False, is_dynamic, movement_type, movement_params))
 
     
     def update_hold(self, timestep, velocity):
@@ -100,7 +100,7 @@ class Environment:
             for i in range(num_holds):
                 x = buffer + (i * spacing)
                 y = buffer
-                self.add_hold(x, y)
+                self.add_hold((x, y), self.grasp_radius)
             self.start_idx = 0
             self.goal_idx = num_holds - 1
 

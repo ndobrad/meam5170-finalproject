@@ -9,7 +9,7 @@ SimResult = namedtuple('SimResult', ['t','x','u','origin_offsets','pose','curren
 
 def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planner:PathPlanner, ):
     t0 = 0.0
-    dt = 5e-3
+    dt = 1e-2
 
     x = [x0]
     u = [np.zeros((acrobot.n_u,))]

@@ -35,18 +35,16 @@ class Acrobot(object):
         switched from being attached at the "shoulder" to being attached 
         at the "hand." 
         """
-        #TODO: fix this, doesn't work
-        A = np.array([[-1,-1, 0, 0],
-                      [ 0,-1, 0, 0],
-                      [ 0, 0,-1,-1],
-                      [ 0, 0, 0,-1]])
+        ret = np.zeros_like(x)
         
-        b = np.array([np.pi/2,
-                      0,
-                      0,
-                      0])
-        
-        return A @ x + b
+        q_l2 = x[0] + x[1]
+        q_corr = q_l2 // (np.pi/4)
+        q_std = q_l2 % (np.pi/4)
+        ret[0] = -(np.pi/2 - q_std + (q_corr * np.pi/4))
+        ret[1] = -x[1]
+        #ret[2] = -x[2] - x[3]
+        ret[3] = -x[3]
+        return ret 
 
     def continuous_time_full_dynamics(self, x, u):
         q = x[:self.n_q]
