@@ -38,9 +38,9 @@ class Acrobot(object):
         ret = np.zeros_like(x)
         
         q_l2 = x[0] + x[1]
-        q_corr = q_l2 // (np.pi/4)
-        q_std = q_l2 % (np.pi/4)
-        ret[0] = -(np.pi/2 - q_std + (q_corr * np.pi/4))
+        q_std = np.abs(q_l2 % (np.pi/2))
+        q_corr = 1 - (np.abs(q_l2) // (np.pi/2))
+        ret[0] = (np.pi/2 - q_std + (q_corr * np.pi/2)) * -np.sign(q_l2)
         ret[1] = -x[1]
         #ret[2] = -x[2] - x[3]
         ret[3] = -x[3]
@@ -71,7 +71,7 @@ class Acrobot(object):
         Bd = B * T
         return Ad, Bd
 
-    def get_tip_position(self, x):
+    def get_tip_position(self, x) -> np.ndarray:
         xpos = self.l1 * np.sin(x[0]) + self.l2 * np.sin(x[0] + x[1])
         ypos = -(self.l1 * np.cos(x[0]) + self.l2 * np.cos(x[0] + x[1]))
-        return (xpos, ypos)
+        return np.array([xpos, ypos])
