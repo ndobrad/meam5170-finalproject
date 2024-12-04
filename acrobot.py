@@ -67,22 +67,38 @@ class Acrobot(object):
     
     def continuous_time_linear_dynamics(self, xd, ud):
         """
-        Linearizes the dynamics around xd, ud
+        Linearizes the dynamics around xd, ud, calculates using
+        error coordinates
+        Returns: A, B
+        ref: https://stackoverflow.com/a/64565582
         """
-        #need to linearize around x, u? Use partial feedback linearization?
-        #linearizing around some trajectory? but then how to find traj (MPC)?
-        #linearize around current x?
+        #need to linearize around x, u
+        #linearizing around some trajectory:
+        #how to find traj? Direct collocation
         
+        xu_val = np.hstack((xd, ud))
+        nx = self.ad_context.num_continuous_states()
         
-        
-        
-        
-        pass
+        xu_ad = InitializeAutoDiff(xu_val)
+        x_ad = xu_ad[:nx]
+        u_ad = xu_ad[nx:]
+        self.ad_context.SetContinuousState(x_ad)
+        self.ad_plant.get_input_port(self.input_port).FixValue(self.ad_context, BasicVector_[AutoDiffXd](u_ad))  
+        derivatives = self.ad_plant.AllocateTimeDerivatives()
+        self.ad_plant.CalcTimeDerivatives(self.ad_context, derivatives)
+        xdot_ad = derivatives.get_vector().CopyToVector()    
 
-    def partial_feedback_linearization(self):
-        pass
-    
-    def discrete_time_linear_dynamics(self, T: float):
+        AB = ExtractGradient(xdot_ad)
+        A = AB[:, :nx]
+        B = AB[:, nx:]
+        
+        return A, B
+        
+        
+    def discrete_time_linear_dynamics(self, T: float, xd, ud):
+        """
+        Returns x_k+1 via Euler method
+        """
         A, B = self.continuous_time_linear_dynamics()
         Ad = np.identity(self.n_x) + A * T
         Bd = B * T
