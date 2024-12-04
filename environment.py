@@ -25,7 +25,7 @@ class Hold:
     def update_position(self, timestep):
         """
         Args:
-            timestep (float): dt (sec), used to compute the new position of the hold
+            timestep (float): dt (sec), used to compute the new position of a dynamic hold
         Returns:
             None, hold is updated in place
         """
@@ -103,14 +103,12 @@ class Environment:
             Returns:
                 None, environment is generated in place
             """
-            # TODO: generate environment
             random.seed(17)
             goal_reachable = False
             self.holds.append(Hold(start))
             self.start_idx = 0
 
             def weighted_sample():
-                #  TODO: grid based sampling to enforce balanced hold density
                 grid = {}   # (cell bottom left corner coords, num holds in cell)
                 for hold in self.holds:
                     cell = (hold.position[0] // spacing, hold.position[1] // spacing)
@@ -123,7 +121,7 @@ class Environment:
             def l2_dist(p1, p2):
                 return np.linalg.norm(np.array(p1) - np.array(p2))
             
-            #  TODO: RRT
+            # RRT
             while len(self.holds) < num_holds:
                 if random.random() < 0.95:
                     sample = weighted_sample()
@@ -145,7 +143,6 @@ class Environment:
             return goal_reachable
     
     def plot(self, path):
-        #  TODO: plot simple graph of environment
         fig, ax = plt.subplots(figsize=(8, 6))
         for i, hold in enumerate(self.holds):
             x, y = hold.position
