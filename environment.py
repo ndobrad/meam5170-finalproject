@@ -4,6 +4,8 @@ Defines the 2D environment for the brachiating robot, as well as functions to ge
 import numpy as np
 
 import matplotlib.pyplot as plt
+import random
+import numpy as np
 
 class Hold:
     def __init__(self, position, size, is_latched=False, is_dynamic=False, movement_type=None, movement_params=None):
@@ -26,7 +28,7 @@ class Hold:
     def update_position(self, timestep):
         """
         Args:
-            timestep (float): dt (sec), used to compute the new position of the hold
+            timestep (float): dt (sec), used to compute the new position of a dynamic hold
         Returns:
             None, hold is updated in place
         """
@@ -96,7 +98,7 @@ class Environment:
             self.xmin = 0
             self.xmax = num_holds * spacing + (2 * buffer)
             self.ymin = 0
-            self.ymax = 2*buffer
+            self.ymax = 2 * buffer
             for i in range(num_holds):
                 x = buffer + (i * spacing)
                 y = buffer
@@ -115,11 +117,46 @@ class Environment:
             Returns:
                 None, environment is generated in place
             """
-            # TODO: generate environment with seed
-            pass
+            random.seed(17)
+            goal_reachable = False
+            self.holds.append(Hold(start))
+            self.start_idx = 0
+
+            def weighted_sample():
+                grid = {}   # (cell bottom left corner coords, num holds in cell)
+                for hold in self.holds:
+                    cell = (hold.position[0] // spacing, hold.position[1] // spacing)
+                    grid[cell] = grid.get(cell, 0) + 1
+                min_density_cell = min(grid, key=lambda cell: grid[cell])
+                x = random.uniform(min_density_cell[0] * spacing, (min_density_cell[0] + 1) * spacing)
+                y = random.uniform(min_density_cell[1] * spacing, (min_density_cell[1] + 1) * spacing)
+                return (x, y)
+            
+            def l2_dist(p1, p2):
+                return np.linalg.norm(np.array(p1) - np.array(p2))
+            
+            # RRT
+            while len(self.holds) < num_holds:
+                if random.random() < 0.95:
+                    sample = weighted_sample()
+                else:
+                    sample = goal
+                nearest_node = min(self.holds, key=lambda h: l2_dist(sample, h.position))
+                nearest_pos = nearest_node.position
+                dist = l2_dist(sample, nearest_pos)
+                rand_scale = random.uniform(0.5, 1.0)
+                new_x = nearest_pos[0] + (sample[0] - nearest_pos[0]) / dist * spacing * rand_scale
+                new_y = nearest_pos[1] + (sample[1] - nearest_pos[1]) / dist * spacing * rand_scale
+                new_node = (new_x, new_y)
+                self.holds.append(Hold(new_node))
+                if l2_dist(new_node, goal) <= spacing:
+                    goal_reachable = True
+            self.holds.append(Hold(goal))
+            self.goal_idx = len(self.holds) - 1
+
+            return goal_reachable
     
     def plot(self, path):
-        #  TODO: plot simple graph of environment
         fig, ax = plt.subplots(figsize=(8, 6))
         for i, hold in enumerate(self.holds):
             x, y = hold.position
@@ -149,7 +186,11 @@ class Environment:
 if __name__ == "__main__":
     # test plotting
     env = Environment()
-    env.generate_static_monkey_bars(10, 1)
-    env.holds[3].is_latched = True
-    path = "./env_plot/monkey_bar_test.png"
+    # env.generate_static_monkey_bars(10, 1)
+    # env.holds[3].is_latched = True
+    # env.holds[4].is_latched = True
+    # path = "./env_plot/monkey_bar_test.png"
+    reachable = env.generate_static_random((0, 0, 10, 10), (1, 1), (9, 9), 1000, 1)
+    print(reachable)
+    path = "./env_plot/static_random_test.png"
     env.plot(path)
