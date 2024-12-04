@@ -1,6 +1,8 @@
 import numpy as np
 from pydrake.multibody.plant import MultibodyPlant
-from pydrake.all import DiagramBuilder, AddMultibodyPlantSceneGraph, SceneGraph
+#from pydrake.all import DiagramBuilder, AddMultibodyPlantSceneGraph, SceneGraph
+from pydrake.autodiffutils import AutoDiffXd, InitializeAutoDiff, ExtractGradient
+from pydrake.systems.framework import BasicVector_
 from manipulator_dynamics import ManipulatorDynamics
 
 class Acrobot(object):
@@ -15,6 +17,9 @@ class Acrobot(object):
         # self.I2 = ???
         
         self.plant = plant
+        self.ad_plant = self.plant.ToAutoDiffXd()
+        self.ad_context = self.ad_plant.CreateDefaultContext()
+        self.input_port = self.ad_plant.get_actuation_input_port().get_index()
         # builder = DiagramBuilder()
         # self.plant, self.scenegraph = AddMultibodyPlantSceneGraph(builder,plant)
         # diagram = builder.Build()
@@ -37,9 +42,13 @@ class Acrobot(object):
         """
         ret = np.zeros_like(x)
         
-        q_l2 = x[0] + x[1]
+        # normalize x[0] and x[1] to [-pi, pi), calculate angle of the distal
+        # link relative to the base joint
+        q_l2 = np.arctan2(np.sin(x[0]),np.cos(x[0])) + np.arctan2(np.sin(x[1]),np.cos(x[1]))
+        # calculate offset from smallest multiple of pi/2
         q_std = np.abs(q_l2 % (np.pi/2))
         q_corr = 1 - (np.abs(q_l2) // (np.pi/2))
+        # Calculate new base angle
         ret[0] = (np.pi/2 - q_std + (q_corr * np.pi/2)) * -np.sign(q_l2)
         ret[1] = -x[1]
         #ret[2] = -x[2] - x[3]
@@ -56,10 +65,18 @@ class Acrobot(object):
         return np.hstack((v, v_dot))
 
     
-    def continuous_time_linear_dynamics(self):
+    def continuous_time_linear_dynamics(self, xd, ud):
+        """
+        Linearizes the dynamics around xd, ud
+        """
         #need to linearize around x, u? Use partial feedback linearization?
         #linearizing around some trajectory? but then how to find traj (MPC)?
         #linearize around current x?
+        
+        
+        
+        
+        
         pass
 
     def partial_feedback_linearization(self):
