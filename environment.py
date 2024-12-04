@@ -37,7 +37,7 @@ class Hold:
 
 
 class Environment:
-    def __init__(self, xmin=0.0, xmax=0.0, ymin=0.0, ymax=0.0, grasp_radius=0.15, initial_hold=None):
+    def __init__(self, xmin=0.0, xmax=10.0, ymin=0.0, ymax=10.0, grasp_radius=0.15, initial_hold=None):
         """
         Args:
             xmin (float): grid boundary
@@ -57,7 +57,7 @@ class Environment:
         self.goal_idx = None
         
         if initial_hold is not None:
-            self.holds.append(Hold(initial_hold,self.grasp_radius))
+            self.holds.append(Hold(initial_hold, self.grasp_radius))
             self.start_idx = len(self.holds) - 1
 
     
@@ -119,7 +119,7 @@ class Environment:
             """
             random.seed(17)
             goal_reachable = False
-            self.holds.append(Hold(start))
+            self.add_hold(start, self.grasp_radius)
             self.start_idx = 0
 
             def weighted_sample():
@@ -148,10 +148,10 @@ class Environment:
                 new_x = nearest_pos[0] + (sample[0] - nearest_pos[0]) / dist * spacing * rand_scale
                 new_y = nearest_pos[1] + (sample[1] - nearest_pos[1]) / dist * spacing * rand_scale
                 new_node = (new_x, new_y)
-                self.holds.append(Hold(new_node))
+                self.add_hold(new_node, self.grasp_radius)
                 if l2_dist(new_node, goal) <= spacing:
                     goal_reachable = True
-            self.holds.append(Hold(goal))
+            self.add_hold(goal, self.grasp_radius)
             self.goal_idx = len(self.holds) - 1
 
             return goal_reachable
