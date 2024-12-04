@@ -1,22 +1,25 @@
 """
 Defines the 2D environment for the brachiating robot, as well as functions to generate simple environment types.
 """
+import numpy as np
 
 import matplotlib.pyplot as plt
 import random
 import numpy as np
 
 class Hold:
-    def __init__(self, position, is_latched=False, is_dynamic=False, movement_type=None, movement_params=None):
+    def __init__(self, position, size, is_latched=False, is_dynamic=False, movement_type=None, movement_params=None):
         """
         Args:
             position (tuple): the (x, y) position of the hold
+            size (double): the radius of the graspable area of the hold
             is_latched (bool): whether the robot is latched onto the hold
             is_dynamic (bool, optional): whether the hold is dynamic, defaults to False
             movement_type (str, optional): how the hold moves on contact if dynamic, e.g. linear, oscillating, defaults to None
             movement_params (list, optional): parameters for movement type, e.g. direction, speed, defaults to None
         """
-        self.position = position
+        self.position = np.array(position)
+        self.size = size
         self.is_latched = is_latched
         self.is_dynamic = is_dynamic
         self.movement_type = movement_type
@@ -34,29 +37,35 @@ class Hold:
 
 
 class Environment:
-    def __init__(self, xmin=0.0, xmax=10.0, ymin=0.0, ymax=10.0, grasp_radius=None):
+    def __init__(self, xmin=0.0, xmax=0.0, ymin=0.0, ymax=0.0, grasp_radius=0.15, initial_hold=None):
         """
         Args:
             xmin (float): grid boundary
             xmax (float): grid boundary
             ymin (float): grid boundary
             ymax (float): grid boundary
-            grasp_radius: radius around hold within which end effector can latch
+            grasp_radius: default radius around each hold within which end effector can latch
         """
         self.xmin = xmin
         self.xmax = xmax
         self.ymin = ymin
         self.ymax = ymax
         self.grasp_radius = grasp_radius
+
         self.holds = []
         self.start_idx = None
         self.goal_idx = None
+        
+        if initial_hold is not None:
+            self.holds.append(Hold(initial_hold,self.grasp_radius))
+            self.start_idx = len(self.holds) - 1
+
     
-    def add_hold(self, x, y, is_dynamic=False, movement_type=None, movement_params=None):
+    def add_hold(self, position, size, is_dynamic=False, movement_type=None, movement_params=None):
         """
         helper function to add a hold to an environment
         """
-        self.holds.append(Hold((x, y), False, is_dynamic, movement_type, movement_params))
+        self.holds.append(Hold(position, size, False, is_dynamic, movement_type, movement_params))
 
     
     def update_hold(self, timestep, velocity):
@@ -69,6 +78,11 @@ class Environment:
         """
         # TODO: update hold which is latched
         pass
+    
+    def generate_single_hold(self, pos:np.ndarray):
+        new_hold = Hold(pos, self.grasp_radius, is_dynamic=False)
+        self.holds.append(new_hold)
+        self.goal_idx = len(self.holds) - 1
 
     def generate_static_monkey_bars(self, num_holds, spacing):
             """
@@ -88,7 +102,7 @@ class Environment:
             for i in range(num_holds):
                 x = buffer + (i * spacing)
                 y = buffer
-                self.add_hold(x, y)
+                self.add_hold((x, y), self.grasp_radius)
             self.start_idx = 0
             self.goal_idx = num_holds - 1
 
@@ -169,13 +183,14 @@ class Environment:
         plt.savefig(path)
         pass
 
-# test plotting
-env = Environment()
-# env.generate_static_monkey_bars(10, 1)
-# env.holds[3].is_latched = True
-# env.holds[4].is_latched = True
-# path = "./env_plot/monkey_bar_test.png"
-reachable = env.generate_static_random((0, 0, 10, 10), (1, 1), (9, 9), 1000, 1)
-print(reachable)
-path = "./env_plot/static_random_test.png"
-env.plot(path)
+if __name__ == "__main__":
+    # test plotting
+    env = Environment()
+    # env.generate_static_monkey_bars(10, 1)
+    # env.holds[3].is_latched = True
+    # env.holds[4].is_latched = True
+    # path = "./env_plot/monkey_bar_test.png"
+    reachable = env.generate_static_random((0, 0, 10, 10), (1, 1), (9, 9), 1000, 1)
+    print(reachable)
+    path = "./env_plot/static_random_test.png"
+    env.plot(path)
