@@ -8,8 +8,8 @@ class ZeroController(Controller):
     def compute_feedback(self, current_x) -> np.ndarray:
         return np.zeros((self.n_u,))
     
-    def update_target_state(self, x_desired):
-        return super().update_target_state(x_desired)
+    def update_target_state(self, goal_pos):
+        return super().update_target_state(goal_pos)
 
 class MPCController(Controller):
     def __init__(self, acrobot: Acrobot, Q, R, Qf) -> None:
@@ -19,8 +19,13 @@ class MPCController(Controller):
         self.Qf = Qf
         self.x_d = np.zeros(self.n_x)
         
-    def update_target_state(self, x_desired):
-        self.x_d = x_desired
+    def update_target_state(self, goal_pos):
+        super().update_target_state(goal_pos)
+        # here we need to plan a trajectory using collocation:
+        
+        # call new bot.inverse_kinematics() function to get target joint angles
+        # set up drake DirectCollocation
+        
     
     def compute_feedback(self, x_current) -> np.ndarray:
         # Parameters for the QP

@@ -43,7 +43,7 @@ def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planne
         if current_next_plan_step is not None:
             goal_hold = path_planner.env.holds[plan[current_next_plan_step]]
             goal_location = goal_hold.position - current_origin_offset #next hold location relative to robot base
-            
+            controller.update_target_state(goal_location)
             current_u_command = controller.compute_feedback(current_x)
             # TODO: uncomment below if we need to constrain input
             # current_u_command = np.clip(current_u_command, acrobot.umin, acrobot.umax)

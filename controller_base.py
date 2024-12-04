@@ -15,8 +15,11 @@ class Controller(ABC):
         pass
     
     @abstractmethod
-    def update_target_state(self, x_desired):
-        pass
+    def update_target_state(self, goal_pos):
+        """
+        goal_pos is the (x,y) position of the target hold
+        """
+        self.goal_pos = goal_pos
     
     
     
