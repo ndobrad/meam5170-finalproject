@@ -1,11 +1,10 @@
 """
 Defines the 2D environment for the brachiating robot, as well as functions to generate simple environment types.
 """
-import numpy as np
 
+import numpy as np
 import matplotlib.pyplot as plt
 import random
-import numpy as np
 
 class Hold:
     def __init__(self, position, size, is_latched=False, is_dynamic=False, movement_type=None, movement_params=None):
@@ -51,6 +50,7 @@ class Environment:
         self.ymin = ymin
         self.ymax = ymax
         self.grasp_radius = grasp_radius
+        self.spacing = None
 
         self.holds = []
         self.start_idx = None
@@ -94,6 +94,7 @@ class Environment:
             Returns:
                 None, environment is generated in place
             """
+            self.spacing = spacing
             buffer = 3 * spacing
             self.xmin = 0
             self.xmax = num_holds * spacing + (2 * buffer)
@@ -106,7 +107,7 @@ class Environment:
             self.start_idx = 0
             self.goal_idx = num_holds - 1
 
-    def generate_static_random(self, grid_bounds, start, goal, num_holds, spacing):
+    def generate_static_random(self, grid_bounds, start, goal, num_holds, spacing, goal_bias=0.95, seed=17):
             """
             Args:
                 grid_bounds (tuple): (xmin, xmax, ymin, ymax) float values for grid boundary
@@ -117,7 +118,9 @@ class Environment:
             Returns:
                 None, environment is generated in place
             """
-            random.seed(17)
+            self.spacing = spacing
+            self.xmin, self.xmax, self.ymin, self.ymax = grid_bounds
+            random.seed(seed)
             goal_reachable = False
             self.add_hold(start, self.grasp_radius)
             self.start_idx = 0
@@ -137,7 +140,7 @@ class Environment:
             
             # RRT
             while len(self.holds) < num_holds:
-                if random.random() < 0.95:
+                if random.random() < goal_bias:
                     sample = weighted_sample()
                 else:
                     sample = goal
@@ -153,7 +156,6 @@ class Environment:
                     goal_reachable = True
             self.add_hold(goal, self.grasp_radius)
             self.goal_idx = len(self.holds) - 1
-
             return goal_reachable
     
     def plot(self, path):
@@ -190,7 +192,8 @@ if __name__ == "__main__":
     # env.holds[3].is_latched = True
     # env.holds[4].is_latched = True
     # path = "./env_plot/monkey_bar_test.png"
-    reachable = env.generate_static_random((0, 0, 10, 10), (1, 1), (9, 9), 1000, 1)
+    reachable = env.generate_static_random((0, 10, 0, 10), (1, 1), (9, 9), 1000, 1)
+    # reachable = env.generate_static_random((0, 5, 0, 5), (1, 1), (4, 4), 500, 1, 0.99)
     print(reachable)
     path = "./env_plot/static_random_test.png"
     env.plot(path)
