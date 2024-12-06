@@ -89,7 +89,7 @@ class TrivialPathPlanner(PathPlanner):
     in the environment, which should be within reach (assume that the
     environment only contains one hold besides the initial hold)
     """
-    def calculate_path(self, start_hold_index, goal_point=None) -> np.ndarray:
+    def calculate_path(self) -> np.ndarray:
         return np.array([self.env.start_idx, self.env.goal_idx])
     
     
