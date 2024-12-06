@@ -15,7 +15,7 @@ def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planne
     u = [np.zeros((acrobot.n_u,))]
     t = [t0]
     
-    plan = path_planner.calculate_path(0,1)
+    plan = path_planner.calculate_path()
     active_plan_steps = [0] #list of PLAN indices
     next_plan_steps = [1] #list of PLAN indices
     pose = [1] #indicate which link (red/blue) is latched to hold. Used for vis only.
