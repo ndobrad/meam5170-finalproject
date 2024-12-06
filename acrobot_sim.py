@@ -7,7 +7,7 @@ from environment import Environment, Hold
 
 SimResult = namedtuple('SimResult', ['t','x','u','origin_offsets','pose','current_holds','next_holds'])
 
-def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planner:PathPlanner, ):
+def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planner:PathPlanner):
     t0 = 0.0
     dt = 1e-2
 
