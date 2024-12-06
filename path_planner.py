@@ -5,10 +5,11 @@ The path planner, with multiple options for heuristics.
 import numpy as np
 import heapq
 from environment import Environment
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 class PathPlanner:
     def __init__(self, env:Environment):
+        self.bounds = (env.xmin, env.xmax, env.ymin, env.ymax)
         self.holds = env.holds
         self.range = env.spacing + env.grasp_radius
         self.start_idx = env.start_idx
@@ -23,7 +24,9 @@ class PathPlanner:
     def edge_cost(self, prev_idx, curr_idx, next_idx, energy=True):
         # simplified torque-based model of simple pendulum
         g = 9.81
-        m = 1.0
+        m = 10.0
+        alpha = 0.0
+        beta = 0.0
         prev_pos = np.array(self.holds[prev_idx].position)
         curr_pos = np.array(self.holds[curr_idx].position)
         next_pos = np.array(self.holds[next_idx].position)
@@ -46,7 +49,7 @@ class PathPlanner:
         # gravitational potential energy
         delta_y = next_pos[1] - prev_pos[1]
         delta_E_g = m * g * delta_y
-        return tau_prev + tau_next + delta_E_g
+        return tau_prev + tau_next + beta * delta_E_g + alpha * L_next
     
     def get_neighbors(self, curr_idx):
         curr_pos = np.array(self.holds[curr_idx].position)
@@ -62,10 +65,14 @@ class PathPlanner:
     def A_star(self, energy=True):
         open_set = []   # priority queue with (cost, index)
         heapq.heappush(open_set, (0, self.start_idx))
+        closed_set = set()
         g_costs = {self.start_idx: 0}
         parent = {}
         while open_set:
             _, curr_idx = heapq.heappop(open_set)
+            if curr_idx in closed_set:
+                continue
+            closed_set.add(curr_idx)
             if curr_idx == self.goal_idx:
                 path = [curr_idx]
                 while curr_idx in parent:
@@ -74,6 +81,8 @@ class PathPlanner:
                 path.reverse()
                 return path
             for neighbor_idx in self.get_neighbors(curr_idx):
+                if neighbor_idx in closed_set:
+                    continue
                 new_g = g_costs[curr_idx] + self.edge_cost(curr_idx, neighbor_idx, energy)
                 if neighbor_idx not in g_costs or new_g < g_costs[neighbor_idx]:
                     g_costs[neighbor_idx] = new_g
@@ -107,8 +116,8 @@ class PathPlanner:
                 path_positions = [env.holds[idx].position for idx in path]
                 x_coords, y_coords = zip(*path_positions)
                 ax.plot(x_coords, y_coords, linestyle='-', linewidth=2, color=colors[idx % len(colors)], label=label)
-        ax.set_xlim(self.xmin, self.xmax)
-        ax.set_ylim(self.ymin, self.ymax)
+        ax.set_xlim(self.bounds[0], self.bounds[1])
+        ax.set_ylim(self.bounds[2], self.bounds[3])
         ax.set_title("A* Paths")
         ax.set_xlabel("X (m)")
         ax.set_ylabel("Y (m)")
@@ -120,7 +129,7 @@ class PathPlanner:
 if __name__ == "__main__":
     # plot A* with different edge costs
     env = Environment()
-    env.generate_static_random((0, 5, 0, 5), (1, 1), (4, 4), 500, 1, 0.99)
+    env.generate_static_random((0, 10, 0, 10), (1, 1), (9, 9), 500, 1, 0.99)
     planner = PathPlanner(env)
     path_energy = planner.A_star()
     path_distance = planner.A_star(False)

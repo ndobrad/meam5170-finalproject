@@ -192,7 +192,7 @@ if __name__ == "__main__":
     # env.holds[3].is_latched = True
     # env.holds[4].is_latched = True
     # path = "./env_plot/monkey_bar_test.png"
-    reachable = env.generate_static_random((0, 10, 0, 10), (1, 1), (9, 9), 1000, 1)
+    reachable = env.generate_static_random((0, 10, 0, 10), (1, 1), (9, 9), 500, 1, 0.99)
     # reachable = env.generate_static_random((0, 5, 0, 5), (1, 1), (4, 4), 500, 1, 0.99)
     print(reachable)
     path = "./env_plot/static_random_test.png"
