@@ -22,9 +22,11 @@ class MPCController(Controller):
         self.Qf = Qf
         self.x_d = np.zeros(self.n_x)
         self.u_d = np.zeros(self.n_u)
+        self.last_u = np.zeros(self.n_u)
     
-    def update_target_state(self, x_desired):
-        self.x_d = x_desired
+    def update_target_state(self, goal_pos):
+        super().update_target_state(goal_pos)
+        self.x_d = np.hstack([self.acrobot.get_joint_angles(goal_pos),np.zeros(2)])
     
     def compute_feedback(self, current_x):
         # Parameters for the QP
@@ -41,7 +43,7 @@ class MPCController(Controller):
         # Add constraints and cost
         self._add_initial_state_constraint(prog, x, current_x)
         self._add_input_saturation_constraint(prog, u, N)
-        self._add_dynamics_constraint(prog, x, u, N, T)
+        self._add_dynamics_constraint(prog, x, u, N, T, current_x)
         self._add_cost(prog, x, u, N)
         # Solve the QP
         solver = OsqpSolver()
@@ -50,6 +52,7 @@ class MPCController(Controller):
         if result.is_success():
             u_mpc = np.array(result.GetSolution(u[0]))
             u_mpc += self.u_d
+            self.last_u = u_mpc
         else:
             u_mpc = np.zeros(self.nu)
         return u_mpc
@@ -65,8 +68,13 @@ class MPCController(Controller):
         for i in range(N-1):
             prog.AddBoundingBoxConstraint(lb, ub, u[i])
 
-    def _add_dynamics_constraint(self, prog:MathematicalProgram, x, u, N, T):
-        A, B = self.acrobot.discrete_time_linear_dynamics(T, self.x_d, self.u_d)
+    def _add_dynamics_constraint(self, prog:MathematicalProgram, x, u, N, T, x_current):
+        #for now, linearize around the current state and last input. Later, update this to 
+        #linearize around a trajectory. Maybe the trajectory could be saved to self.trajectory
+        # in a class method like update_target_trajectory(self, new_traj) or something.
+        #Then, put the next line here inside the for loop and pass it:
+        # new_traj.x[k+(some kind of index into trajectory)], new_traj.u[k+(same index)]
+        A, B = self.acrobot.discrete_time_linear_dynamics(T, x_current, self.last_u)        
         for k in range(N-1):
             expr = x[k+1] - (A @ x[k] + B @ u[k])
             prog.AddLinearEqualityConstraint(expr, np.zeros(self.n_x))
@@ -194,11 +202,7 @@ class NMPCController(Controller):
         )
 
             
-class TrivialPathPlanner(PathPlanner):
-    """
-    'Plans' a path from the initial position to the first Hold 
-    in the environment, which should be within reach (assume that the
-    environment only contains one hold besides the initial hold)
-    """
-    def calculate_path(self) -> np.ndarray:
-        return np.array([self.env.start_idx, self.env.goal_idx])
+
+    
+    
+    

@@ -9,6 +9,7 @@ class Controller(ABC):
         self.n_u = acrobot.n_u
         self.n_x = acrobot.n_x
         self.acrobot = acrobot
+        self.goal_pos = None
         
     @abstractmethod
     def compute_feedback(self, current_x) -> np.ndarray:
@@ -35,4 +36,14 @@ class PathPlanner(ABC):
         in the order they should be visited, starting with the Hold the Acrobot
         is initially attached to.
         """
-        pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+        pass
+    
+    
+class TrajectoryOptimizer(ABC):
+    def __init__(self, acrobot:Acrobot) -> None:
+        self.acrobot = acrobot
+        super().__init__()
+        
+    @abstractmethod
+    def generate_trajectory(self) -> np.ndarray:
+        pass

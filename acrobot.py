@@ -45,6 +45,7 @@ class Acrobot(object):
         # normalize x[0] and x[1] to [-pi, pi), calculate angle of the distal
         # link relative to the base joint
         q_l2 = np.arctan2(np.sin(x[0]),np.cos(x[0])) + np.arctan2(np.sin(x[1]),np.cos(x[1]))
+        q_l2 = np.arctan2(np.sin(q_l2),np.cos(q_l2))
         # calculate offset from smallest multiple of pi/2
         q_std = np.abs(q_l2 % (np.pi/2))
         q_corr = 1 - (np.abs(q_l2) // (np.pi/2))
@@ -99,7 +100,7 @@ class Acrobot(object):
         """
         Returns x_k+1 via Euler method
         """
-        A, B = self.continuous_time_linear_dynamics()
+        A, B = self.continuous_time_linear_dynamics(xd, ud)
         Ad = np.identity(self.n_x) + A * T
         Bd = B * T
         return Ad, Bd
@@ -108,3 +109,14 @@ class Acrobot(object):
         xpos = self.l1 * np.sin(x[0]) + self.l2 * np.sin(x[0] + x[1])
         ypos = -(self.l1 * np.cos(x[0]) + self.l2 * np.cos(x[0] + x[1]))
         return np.array([xpos, ypos])
+    
+    def get_joint_angles(self, pos) -> np.ndarray:
+        ret = np.zeros(2)
+        d = np.sqrt(pos[0]**2 + pos[1]**2)
+        L = (self.l1**2 - self.l2**2 + d**2)/(2*d)
+        h = np.sqrt(self.l1**2 - L**2)
+        elbow_x = L*pos[0]/d + h*pos[1]/d
+        elbow_y = L*pos[1]/d - h*pos[0]/d
+        ret[0] = np.arctan2(-elbow_x, elbow_y)
+        ret[1] = np.arccos(np.dot(pos, np.array([elbow_x, elbow_y]))/(self.l1*self.l2))
+        return ret

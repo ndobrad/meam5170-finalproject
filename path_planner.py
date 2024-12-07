@@ -4,11 +4,14 @@ The path planner, with multiple options for heuristics.
 
 import numpy as np
 import heapq
-from environment import Environment
 import matplotlib.pyplot as plt
+from environment import Environment
+from controller_base import PathPlanner
 
-class PathPlanner:
+
+class AStarPathPlanner(PathPlanner):
     def __init__(self, env:Environment):
+        super().__init__(env)
         self.bounds = (env.xmin, env.xmax, env.ymin, env.ymax)
         self.holds = env.holds
         self.range = env.spacing + env.grasp_radius
@@ -62,7 +65,10 @@ class PathPlanner:
                     neighbors.append(idx)
         return neighbors
 
-    def A_star(self, energy=True):
+    def calculate_path(self, energy=True):
+        """
+        Calculate path using A*
+        """
         open_set = []   # priority queue with (cost, index)
         heapq.heappush(open_set, (0, self.start_idx))
         closed_set = set()
@@ -125,12 +131,23 @@ class PathPlanner:
         ax.grid(True)
         plt.savefig(file_path)
         pass
+    
+    
+
+class TrivialPathPlanner(PathPlanner):
+    """
+    'Plans' a path from the initial position to the first Hold 
+    in the environment, which should be within reach (assume that the
+    environment only contains one hold besides the initial hold)
+    """
+    def calculate_path(self) -> np.ndarray:
+        return np.array([self.env.start_idx, self.env.goal_idx])
 
 if __name__ == "__main__":
     # plot A* with different edge costs
     env = Environment()
     env.generate_static_random((0, 10, 0, 10), (1, 1), (9, 9), 500, 1, 0.99)
-    planner = PathPlanner(env)
+    planner = AStarPathPlanner(env)
     path_energy = planner.A_star()
     path_distance = planner.A_star(False)
     paths = {
