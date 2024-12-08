@@ -74,8 +74,10 @@ class MPCController(Controller):
         # in a class method like update_target_trajectory(self, new_traj) or something.
         #Then, put the next line here inside the for loop and pass it:
         # new_traj.x[k+(some kind of index into trajectory)], new_traj.u[k+(same index)]
-        A, B = self.acrobot.discrete_time_linear_dynamics(T, x_current, self.last_u)        
+                
         for k in range(N-1):
+            #inputs to linearization SHOULD be x,u decision variables. How to make this work?
+            A, B = self.acrobot.discrete_time_linear_dynamics(T, x_current, self.last_u)
             expr = x[k+1] - (A @ x[k] + B @ u[k])
             prog.AddLinearEqualityConstraint(expr, np.zeros(self.n_x))
 

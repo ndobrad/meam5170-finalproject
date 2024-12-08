@@ -47,10 +47,14 @@ class Acrobot(object):
         q_l2 = np.arctan2(np.sin(x[0]),np.cos(x[0])) + np.arctan2(np.sin(x[1]),np.cos(x[1]))
         q_l2 = np.arctan2(np.sin(q_l2),np.cos(q_l2))
         # calculate offset from smallest multiple of pi/2
-        q_std = np.abs(q_l2 % (np.pi/2))
+        q_std = np.abs(q_l2) % (np.pi/2)
         q_corr = 1 - (np.abs(q_l2) // (np.pi/2))
         # Calculate new base angle
-        ret[0] = (np.pi/2 - q_std + (q_corr * np.pi/2)) * -np.sign(q_l2)
+        if q_l2 == 0:
+            mult = 1
+        else:
+            mult = -np.sign(q_l2)
+        ret[0] = (np.pi/2 - q_std + (q_corr * np.pi/2)) * mult
         ret[1] = -x[1]
         #ret[2] = -x[2] - x[3]
         ret[3] = -x[3]
@@ -59,9 +63,7 @@ class Acrobot(object):
     def continuous_time_full_dynamics(self, x, u):
         q = x[:self.n_q]
         v = x[self.n_q:self.n_x]
-        (M, Cv, tauG, B, tauExt) = ManipulatorDynamics(self.plant, q, v)
-        # M_inv = np.linalg.inv(M)
-        # v_dot = M_inv @ (B @ u + tauG - Cv + tauExt)        
+        (M, Cv, tauG, B, tauExt) = ManipulatorDynamics(self.plant, q, v)      
         v_dot = np.linalg.solve(M, (B @ u + tauG - Cv + tauExt))
         return np.hstack((v, v_dot))
 
@@ -94,6 +96,36 @@ class Acrobot(object):
         B = AB[:, nx:]
         
         return A, B
+    
+    
+    def time_varying_linear_dynamics(self, xd, ud):
+        """
+        Linearizes the dynamics around xd, ud, when 
+        xd and ud are Variable objects
+        Returns: A, B (are these )
+        ref: https://stackoverflow.com/a/64565582,
+        https://stackoverflow.com/questions/77687354/substitute-symbolic-variables-with-autodiff-variables
+        
+        THIS DOES NOT WORK RIGHT NOW
+        """
+        #need to linearize around Variable x, u
+        
+        xu_val = np.hstack((xd, ud))
+
+        plant_sym = self.ad_plant.ToSymbolic()
+        context_sym = plant_sym.CreateDefaultContext()
+        plant_sym.SetPositionsAndVelocities(context_sym, xd)
+        # self.ad_plant.get_input_port(self.input_port).FixValue(self.ad_context, BasicVector_[AutoDiffXd](ud))  
+        derivatives = plant_sym.AllocateTimeDerivatives()
+        plant_sym.CalcTimeDerivatives(context_sym, derivatives)
+        xdot_ad = derivatives.get_vector().CopyToVector()    
+
+        AB = ExtractGradient(xdot_ad)
+        nx = context_sym.num_continuous_states()
+        A = AB[:, :nx]
+        B = AB[:, nx:]
+        
+        return A, B
         
         
     def discrete_time_linear_dynamics(self, T: float, xd, ud):
@@ -110,13 +142,35 @@ class Acrobot(object):
         ypos = -(self.l1 * np.cos(x[0]) + self.l2 * np.cos(x[0] + x[1]))
         return np.array([xpos, ypos])
     
-    def get_joint_angles(self, pos) -> np.ndarray:
+    def get_joint_angles(self, pos, x1_positive:bool=True) -> np.ndarray:
+        """
+        inputs:
+            pos: x,y coordinates of desired end effector position
+            x1_positive: set this to true if you'd like the elbow joint to have a positive angle 
+        """
+        #https://math.stackexchange.com/a/1033561
         ret = np.zeros(2)
-        d = np.sqrt(pos[0]**2 + pos[1]**2)
-        L = (self.l1**2 - self.l2**2 + d**2)/(2*d)
-        h = np.sqrt(self.l1**2 - L**2)
-        elbow_x = L*pos[0]/d + h*pos[1]/d
-        elbow_y = L*pos[1]/d - h*pos[0]/d
-        ret[0] = np.arctan2(-elbow_x, elbow_y)
-        ret[1] = np.arccos(np.dot(pos, np.array([elbow_x, elbow_y]))/(self.l1*self.l2))
+        # d = np.sqrt(pos[0]**2 + pos[1]**2)
+        # L = (self.l1**2 - self.l2**2 + d**2)/(2*d)
+        # h = np.sqrt(self.l1**2 - L**2)
+        # elbow_x = L*pos[0]/d + h*pos[1]/d
+        # elbow_y = L*pos[1]/d - h*pos[0]/d
+        # ret[0] = np.arctan2(elbow_x, -elbow_y)               
+        # ret[1] = np.arctan2((elbow_x*pos[1] - pos[0]*elbow_y),
+        #                     np.dot(pos, np.array([elbow_y, elbow_x])))
+
+        ## Alternate method
+        # norm_pos = pos / np.linalg.norm(pos)
+        # norm_xy = np.array([elbow_y, elbow_x])/ np.linalg.norm(np.array([elbow_y, elbow_x]))
+        # ret[1] = np.arccos(np.dot(norm_pos, norm_xy))
+        
+        x = -pos[1]
+        y = pos[0]
+        
+        if x1_positive:
+            ret[1] = np.arccos((x**2+y**2-self.l1**2-self.l2**2)/(2*self.l1*self.l2))
+            ret[0] = np.arctan2(y,x) - np.arctan2(self.l2*np.sin(ret[1]),self.l1+self.l2*np.cos(ret[1]))
+        else:
+            ret[1] = -np.arccos((x**2+y**2-self.l1**2-self.l2**2)/(2*self.l1*self.l2))
+            ret[0] = np.arctan2(y,x) - np.arctan2(self.l2*np.sin(ret[1]),self.l1+self.l2*np.cos(ret[1]))
         return ret
