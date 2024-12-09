@@ -2,12 +2,12 @@ from collections import namedtuple
 import numpy as np
 from acrobot import Acrobot
 from scipy.integrate import solve_ivp
-from controller_base import Controller, PathPlanner
+from controller_base import Controller, PathPlanner, TrajectoryOptimizer
 from environment import Environment, Hold
 
 SimResult = namedtuple('SimResult', ['t','x','u','origin_offsets','pose','current_holds','next_holds'])
 
-def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planner:PathPlanner):
+def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planner:PathPlanner, traj_opt:TrajectoryOptimizer):
     t0 = 0.0
     dt = 1e-2
 

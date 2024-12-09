@@ -152,6 +152,6 @@ def create_animation(bot_vis:AcrobotVisualizer, x_traj, t, origin_offsets, poses
         bot_vis.draw(x_traj[i,:], t[i], origin_offsets[i,:], poses[i], current_holds[i], next_holds[i])
 
     ani = animation.FuncAnimation(
-        bot_vis.fig, update, x_traj.shape[0], interval=1e-2 * 1000, 
+        bot_vis.fig, update, x_traj.shape[0], interval=(t[1]-t[0]) * 1000, 
     )
     return ani
