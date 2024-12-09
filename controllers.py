@@ -4,6 +4,7 @@ from environment import Environment
 from controller_base import Controller, PathPlanner
 from pydrake.all import MathematicalProgram, OsqpSolver
 from pydrake.solvers import Solve
+from pydrake.autodiffutils import AutoDiffXd
 
 class ZeroController(Controller):
     def compute_feedback(self, current_x) -> np.ndarray:
@@ -92,46 +93,46 @@ class MPCController(Controller):
 
 ''' TODO: Modification Needed for Non-Linear MOC formulation'''
 class NMPCController(Controller):
-    def __init__(self, acrobot: Acrobot, Q, R, Qf) -> None:
+    def __init__(self, acrobot: Acrobot, Q, R, Qf, N=10) -> None:
         super().__init__(acrobot)
         self.Q = Q
         self.R = R
         self.Qf = Qf
         self.x_d = np.zeros(self.n_x)
         self.u_d = np.zeros(self.n_u)
-        
-    def update_target_state(self, x_desired):
-        self.x_d = x_desired
+        self.dt = 0.1
+        self.N = N
+    
+    def update_target_state(self, goal_pos):
+        self.x_d[:2] = self.acrobot.get_joint_angles(goal_pos)
+        self.x_d[2:] = 0  # Zero velocity at the target
     
     def compute_feedback(self, current_x):
-        # Parameters for the QP
-        N = 10
-        T = 0.1
+
         # Initialize mathematical program and decalre decision variables
         prog = MathematicalProgram()
-        x = np.zeros((N, self.n_x), dtype="object")
-        for i in range(N):
+        x = np.zeros((self.N, self.n_x), dtype="object")
+        for i in range(self.N):
             x[i] = prog.NewContinuousVariables(self.n_x, "x_" + str(i))
-        u = np.zeros((N-1), dtype="object")
-        for i in range(N-1):
+        u = np.zeros((self.N-1), dtype="object")
+        for i in range(self.N-1):
             u[i] = prog.NewContinuousVariables(self.n_u, "u_" + str(i))
+        
         # Add constraints and cost
-        self._add_initial_state_constraint(prog, x, x_current)
-        self._add_input_saturation_constraint(prog, x, u, N)
-        # self._add_dynamics_constraint(prog, x, u, N, T)
-        self._add_nonlinear_dynamics_constraint(prog, x, u, N, T)
-        self._add_cost(prog, x, u, N)
-        # Solve the QP
-        # solver = OsqpSolver()
-        # result = solver.Solve(prog)
+        # self._add_initial_state_constraint(prog, x, current_x)
+        # self._add_input_saturation_constraint(prog, x, u)
+        # self._add_nonlinear_dynamics_constraint(prog, x, u)
+        # self._add_cost(prog, x, u)
+        self._add_cost_diff_formulation(prog, x, u)
+
+        # Solve the optimization problem
         result = Solve(prog)
-        u_mpc = np.zeros(self.n_u)
+        u_mpc = np.zeros(self.n_u)            
         if result.is_success():
-            # u_mpc = np.array(result.GetSolution(u[0]))
-            # u_mpc += self.u_d()
             u_mpc = result.GetSolution(u[0])
         else:
-            u_mpc = np.zeros(self.nu)
+            print("Optimization failed!")
+            u_mpc = np.zeros(self.n_u)
         return u_mpc
     
     def _add_initial_state_constraint(self, prog:MathematicalProgram, x, x_current):
@@ -139,72 +140,81 @@ class NMPCController(Controller):
         ub = x_current
         prog.AddBoundingBoxConstraint(lb, ub, x[0])
     
-    def _add_input_saturation_constraint(self, prog:MathematicalProgram, x, u, N):
+    def _add_input_saturation_constraint(self, prog:MathematicalProgram, x, u):
         lb = np.array([self.acrobot.umin]) 
         ub = np.array([self.acrobot.umax])
-        for i in range(N-1):
+        for i in range(self.N-1):
             prog.AddBoundingBoxConstraint(lb, ub, u[i])
             
-    def _add_dynamics_constraint(self, prog:MathematicalProgram, x, u, N, T):
-        # A, B = self.acrobot.continuous_time_full_dynamics(x, u)
-        for k in range(N-1):
+    def _add_linear_dynamics_constraint(self, prog:MathematicalProgram, x, u, T):
+        A, B = self.acrobot.continuous_time_full_dynamics(x, u)
+        for k in range(self.N-1):
             x_operating_point = x[k]
             u_operating_point = u[k]
             A, B = self.acrobot.continuous_time_linear_dynamics(x_operating_point, u_operating_point)
             Ad = np.identity(self.n_x) + A * T
             Bd = B * T
             expr = x[k+1] - (Ad @ x[k] + Bd @ u[k])
-            prog.AddLinearEqualityConstraint(expr, np.zeros(self.n_x))  
+            prog.AddLinearEqualityConstraint(expr, np.zeros(self.n_x))
 
-    def _add_nonlinear_dynamics_constraint(self, prog, x, u, N, T):
-        def dynamics_constraint(vars, T, acrobot):
-            x_k = vars[:acrobot.n_x]
-            u_k = vars[acrobot.n_x:acrobot.n_x+acrobot.n_u]
-            x_next = vars[acrobot.n_x+acrobot.n_u:]
-            x_dot = acrobot.continuous_time_full_dynamics(x_k, u_k)
-            x_next_pred = x_k + T * x_dot
-            return x_next_pred - x_next
+    def discrete_dynamics(self, x, u):
+        # Use Euler discretization
+        x_dot = self.acrobot.continuous_time_full_dynamics(x, u)
+        return x + self.dt * x_dot  
 
-        for k in range(N-1):
+    def _add_nonlinear_dynamics_constraint(self, prog:MathematicalProgram, x, u):
+        def dynamics(state, input):
+            if isinstance(state[0], AutoDiffXd):
+                # Create a context with AutoDiffXd
+                context = self.acrobot.ad_plant.CreateDefaultContext()
+                self.acrobot.ad_plant.SetPositions(context, state[:self.acrobot.n_q])
+                self.acrobot.ad_plant.SetVelocities(context, state[self.acrobot.n_q:])
+                self.acrobot.ad_plant.get_actuation_input_port().FixValue(context, input)
+                derivatives = self.acrobot.ad_plant.AllocateTimeDerivatives()
+                self.acrobot.ad_plant.CalcTimeDerivatives(context, derivatives)
+                return derivatives.get_vector().CopyToVector()
+            else:
+                # Use the original continuous_time_full_dynamics for regular floats
+                return self.acrobot.continuous_time_full_dynamics(state, input)
+
+        for k in range(self.N - 1):
             prog.AddConstraint(
-                lambda vars, T=T, acrobot=self.acrobot: dynamics_constraint(vars, T, acrobot),
+                lambda vars, dt=self.dt: vars[self.n_x:] - (
+                    vars[:self.n_x] + dt * dynamics(vars[:self.n_x], vars[self.n_x:self.n_x+self.n_u])
+                ),
                 lb=np.zeros(self.n_x),
                 ub=np.zeros(self.n_x),
-                vars=np.concatenate([x[k], u[k], x[k+1]])
+                vars=np.concatenate([x[:, k], u[:, k], x[:, k+1]])
             )
 
-    def _add_cost(self, prog:MathematicalProgram, x, u, N):
-        # Need to change this
-        # Qk = np.block([[self.Q, np.zeros((self.n_x,self.n_u))], [np.zeros((self.n_u,self.n_x)), self.R]])
-        # desired_var = np.concatenate([self.x_d(), self.u_d()])
-        for k in range(N-1):
-            prog.AddQuadraticCost(
-            Q=self.Q,
-            b=np.zeros(self.n_x),
-            c=0,
-            vars=x[k],
-            is_convex=True
-            )
-            prog.AddQuadraticCost(
-                Q=self.R,
-                b=np.zeros(self.n_u),
-                c=0,
-                vars=u[k],
-                is_convex=True
-            )
-            # decision_var = np.concatenate([x[i], u[i]])
-            # prog.AddQuadraticCost((x[k] - self.x_d).T @ self.Q @ (x[k] - self.x_d) + u[k].T * (self.R * u[k]), is_convex=True)
-        # prog.AddQuadraticCost((x[N - 1] - self.x_d).T @ self.Qf @ (x[N - 1] - self.x_d), is_convex=True)
-        prog.AddQuadraticCost(
-            Q=self.Qf,
-            b=np.zeros(self.n_x),
-            c=0,
-            vars=x[N-1],
-            is_convex=True
-        )
+        # Dynamics constraints
+        # for k in range(self.N -1):
+        #     x_k = x[:, k]
+        #     u_k = u[k]
+        #     x_next = self.discrete_dynamics(x_k, u_k)
+        #     prog.AddConstraint(x[:, k+1] == x_next)
 
-            
+        # for k in range(N-1):
+        #     prog.AddConstraint(
+        #         lambda vars, T=T, acrobot=self.acrobot: dynamics_constraint(vars, T, acrobot),
+        #         lb=np.zeros(self.n_x),
+        #         ub=np.zeros(self.n_x),
+        #         vars=np.concatenate([x[k], u[k], x[k+1]])
+        #     )
+    
+    def _add_cost(self, prog:MathematicalProgram, x, u):
+        # Cost function
+        for k in range(self.N-1):
+            prog.AddQuadraticCost((x[:, k] - self.x_d).T @ self.Q @ (x[:, k] - self.x_d))
+            prog.AddQuadraticCost(u[k].T @ self.R @ u[k])
+        
+        # Terminal cost
+        prog.AddQuadraticCost((x[:, -1] - self.x_d).T @ self.Qf @ (x[:, -1] - self.x_d))
 
-    
-    
-    
+    def _add_cost_diff_formulation(self, prog:MathematicalProgram, x, u):
+        # Stage cost
+        for k in range(self.N - 1):
+            prog.AddQuadraticCost(Q=self.Q, b=-2 * self.Q @ self.x_d, c=(self.x_d.T @ self.Q @ self.x_d), vars=x[k])
+            prog.AddQuadraticCost(Q=self.R, b=np.zeros(self.n_u), c=0, vars=u[k])
+        # Terminal cost
+        prog.AddQuadraticCost(Q=self.Qf, b=-2 * self.Qf @ self.x_d, c=(self.x_d.T @ self.Qf @ self.x_d), vars=x[self.N - 1])

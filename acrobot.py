@@ -20,7 +20,8 @@ class Acrobot(object):
         self.ad_plant = self.plant.ToAutoDiffXd()
         self.ad_context = self.ad_plant.CreateDefaultContext()
         self.input_port = self.ad_plant.get_actuation_input_port().get_index()
-        # builder = DiagramBuilder()
+
+        # builder = self.ad_context.DiagramBuilder()
         # self.plant, self.scenegraph = AddMultibodyPlantSceneGraph(builder,plant)
         # diagram = builder.Build()
         # sg_context = self.scenegraph.GetMyMutableContextFromRoot(diagram.CreateDefaultContext())
