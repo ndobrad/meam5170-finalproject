@@ -115,7 +115,7 @@ class AcrobotVisualizer:
         self.ax.set_title("t = {:.1f}".format(t))
     
     def _draw_trajectory(self, active_trajectory):
-        if active_trajectory != self.current_traj:
+        if active_trajectory != self.current_traj and active_trajectory is not None:
             self.current_traj = active_trajectory
             traj_to_draw = self.trajectories[active_trajectory]
             t = np.linspace(0,traj_to_draw.end_time(),500)
@@ -125,6 +125,9 @@ class AcrobotVisualizer:
             if self.current_traj_plot is not None:
                 self.current_traj_plot.remove()
             self.current_traj_plot, = self.ax.plot(x[:,0], x[:,1])
+        # elif active_trajectory is None:
+        #     if self.current_traj_plot is not None:
+        #         self.current_traj_plot.remove()
         #update moving target
         
     def _setup_environment(self, origin_hold=None, goal_hold=None):
