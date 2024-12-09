@@ -23,6 +23,7 @@ class Hold:
         self.is_dynamic = is_dynamic
         self.movement_type = movement_type
         self.movement_params = movement_params
+        self.is_highlighted = False
     
     def update_position(self, timestep):
         """
@@ -80,9 +81,15 @@ class Environment:
         pass
     
     def generate_single_hold(self, pos:np.ndarray):
+        """
+        Add a single hold to the environment and set it as the goal
+        Returns:
+            The index of the newly-added hold
+        """
         new_hold = Hold(pos, self.grasp_radius, is_dynamic=False)
         self.holds.append(new_hold)
         self.goal_idx = len(self.holds) - 1
+        return len(self.holds) - 1
 
     def generate_static_monkey_bars(self, num_holds, spacing):
             """

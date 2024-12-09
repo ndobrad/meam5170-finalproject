@@ -27,6 +27,7 @@ class AcrobotVisualizer:
         self.start_hold_color = [0, 0.9, 0.9]
         self.goal_hold_color = [0, 0.8, 0]
         self.default_hold_color = [0.3, 0.3, 0.3]
+        self.highlighted_color = [1, 0, 0]
         
         # self.l1 = acrobot.plant.GetRigidBodyByName("red_link")
         
@@ -111,6 +112,8 @@ class AcrobotVisualizer:
             elif hi == goal_hold:
                 color = self.goal_hold_color
                 self.goal_hold = hi
+            elif self.env.holds[hi].is_highlighted:
+                color = self.highlighted_color
             else:
                 color = self.default_hold_color
             hold_fill = self.ax.fill(
@@ -136,13 +139,15 @@ class AcrobotVisualizer:
                 color = self.start_hold_color
             elif hi == self.goal_hold:
                 color = self.goal_hold_color
+            elif self.env.holds[hi].is_highlighted:
+                color = self.highlighted_color
             else:
                 color = self.default_hold_color
             
             self.hold_visuals[hi][0].set_facecolor(color)
             # Unnecessary redraw of holds:
-            # self.hold_visuals[hi][0].get_path().vertices[:, 0] = self.hold_points[0,:] + self.env.holds[hi].position[0]
-            # self.hold_visuals[hi][0].get_path().vertices[:, 1] = self.hold_points[1,:] + self.env.holds[hi].position[1]
+            # self.hold_visuals[hi][0].get_path().vertices[:, 0] = self.hold_points[0,:]*self.env.holds[hi].size + self.env.holds[hi].position[0]
+            # self.hold_visuals[hi][0].get_path().vertices[:, 1] = self.hold_points[1,:]*self.env.holds[hi].size + self.env.holds[hi].position[1]
             
     
 
