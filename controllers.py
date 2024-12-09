@@ -24,7 +24,7 @@ class MPCController(Controller):
         self.x_d = np.zeros(self.n_x)
         self.u_d = np.zeros(self.n_u)
         # self.last_u = np.zeros(self.n_u)
-        self.T = 0.1
+        self.T = 0.01
     
     def update_target_state(self, goal_pos):
         super().update_target_state(goal_pos)
@@ -36,7 +36,7 @@ class MPCController(Controller):
     
     def compute_feedback(self, current_x, traj_t):
         # Parameters for the QP
-        N = 10
+        N = 20
         # Initialize mathematical program and decalre decision variables
         prog = MathematicalProgram()
         x = np.zeros((N, self.n_x), dtype="object")

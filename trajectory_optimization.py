@@ -8,7 +8,7 @@ from pydrake.all import (MathematicalProgram, OsqpSolver, DirectCollocation,
 class DirectCollocationParameters:
     def __init__(self) -> None:
         self.time_samples = 20
-        self.torque_limit = 10
+        self.torque_limit = 9
         self.joint_limits = None
         self.minimum_time_step = 0.1
         self.maximum_time_step = 0.8
@@ -18,7 +18,7 @@ class DirectCollocationParameters:
                            [ 0,  0, 1, 0],
                            [ 0,  0, 0, 1]])
         self.Qf = self.Q
-        self.R = 1
+        self.R = 10
         self.goal_speed_limit = 100
 
 
