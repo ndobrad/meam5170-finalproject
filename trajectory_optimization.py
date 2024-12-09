@@ -24,7 +24,7 @@ class DirectCollocationParameters:
 
 
 class DirectCollocationTrajectoryGenerator(TrajectoryOptimizer):
-    def __init__(self, acrobot:Acrobot, params) -> None:
+    def __init__(self, acrobot:Acrobot, params=DirectCollocationParameters()) -> None:
         super().__init__(acrobot)
         self.collocation_prog = None
         self.params = params

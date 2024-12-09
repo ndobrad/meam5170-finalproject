@@ -92,27 +92,51 @@ class Environment:
         return len(self.holds) - 1
 
     def generate_static_monkey_bars(self, num_holds, spacing):
-            """
-            Generates an environment of equidistant static holds in a line, from start to goal.
+        """
+        Generates an environment of equidistant static holds in a line, from start to goal.
 
-            Args:
-                num_holds (int): number of holds
-                spacing (float): space (m) between holds
-            Returns:
-                None, environment is generated in place
-            """
-            self.spacing = spacing
-            buffer = 3 * spacing
-            self.xmin = 0
-            self.xmax = num_holds * spacing + (2 * buffer)
-            self.ymin = 0
-            self.ymax = 2 * buffer
-            for i in range(num_holds):
-                x = buffer + (i * spacing)
-                y = buffer
-                self.add_hold((x, y), self.grasp_radius)
-            self.start_idx = 0
-            self.goal_idx = num_holds - 1
+        Args:
+            num_holds (int): number of holds
+            spacing (float): space (m) between holds
+        Returns:
+            None, environment is generated in place
+        """
+        self.spacing = spacing
+        buffer = 3 * spacing
+        self.xmin = 0
+        self.xmax = num_holds * spacing + (2 * buffer)
+        self.ymin = 0
+        self.ymax = 2 * buffer
+        for i in range(num_holds):
+            x = buffer + (i * spacing)
+            y = buffer
+            self.add_hold((x, y), self.grasp_radius)
+        self.start_idx = 0
+        self.goal_idx = num_holds - 1
+            
+            
+    def generate_vertical_monkey_bars(self, num_holds, spacing):
+        """
+        Generates an environment of equidistant static holds in a line, from start to goal.
+
+        Args:
+            num_holds (int): number of holds
+            spacing (float): space (m) between holds
+        Returns:
+            None, environment is generated in place
+        """
+        self.spacing = spacing
+        buffer = 3 
+        self.xmin = 0
+        self.xmax = (2 * buffer)
+        self.ymin = 0
+        self.ymax = (num_holds-1) * spacing + (2 * buffer)
+        for i in range(num_holds):
+            y = buffer + ((num_holds-(i+1)) * spacing)
+            x = buffer
+            self.add_hold((x, y), self.grasp_radius)
+        self.start_idx = 0
+        self.goal_idx = num_holds - 1
 
     def generate_static_random(self, grid_bounds, start, goal, num_holds, spacing, goal_bias=0.95, seed=17):
             """
