@@ -53,11 +53,11 @@ class AcrobotVisualizer:
         
         
         self.red_link_fill = self.ax.fill(
-            self.red_link[0, :], self.red_link[1, :], zorder=2, edgecolor="r",
+            self.red_link[0, :], self.red_link[1, :], zorder=3, edgecolor="r",
             facecolor=[1, 0, 0]
         )
         self.blue_link_fill = self.ax.fill(
-            self.blue_link[0, :], self.blue_link[1, :], zorder=2, edgecolor="b",
+            self.blue_link[0, :], self.blue_link[1, :], zorder=3, edgecolor="b",
             facecolor=[0, 0, 1]
         )
         
@@ -106,6 +106,7 @@ class AcrobotVisualizer:
         #   self._draw_hold(hold)
         for hi in range(len(self.env.holds)):
         # for h in self.env.holds:
+            z_order = 2
             if hi == origin_hold:
                 color = self.start_hold_color
                 self.start_hold = hi
@@ -114,12 +115,13 @@ class AcrobotVisualizer:
                 self.goal_hold = hi
             elif self.env.holds[hi].is_highlighted:
                 color = self.highlighted_color
+                z_order = 1
             else:
                 color = self.default_hold_color
             hold_fill = self.ax.fill(
                 self.env.holds[hi].size * self.hold_points[0, :], 
                 self.env.holds[hi].size * self.hold_points[0, :], 
-                zorder=1, edgecolor="k",
+                zorder=z_order, edgecolor="k",
                 facecolor=color)
             
             hold_fill[0].get_path().vertices[:, 0] = (self.env.holds[hi].size * self.hold_points[0,:] 
