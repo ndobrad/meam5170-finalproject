@@ -7,18 +7,19 @@ from pydrake.all import (MathematicalProgram, OsqpSolver, DirectCollocation,
 
 class DirectCollocationParameters:
     def __init__(self) -> None:
-        self.time_samples = None
+        self.time_samples = 20
         self.torque_limit = 10
         self.joint_limits = None
         self.minimum_time_step = 0.1
         self.maximum_time_step = 0.8
         self.time_cost = 0
-        self.Q = np.array([[10,  0, 0, 0],
-                           [ 0, 10, 0, 0],
+        self.Q = np.array([[ 0,  0, 0, 0],
+                           [ 0,  0, 0, 0],
                            [ 0,  0, 1, 0],
                            [ 0,  0, 0, 1]])
         self.Qf = self.Q
         self.R = 1
+        self.goal_speed_limit = 100
 
 
 
@@ -57,8 +58,14 @@ class DirectCollocationTrajectoryGenerator(TrajectoryOptimizer):
         self.collocation_prog.prog().AddBoundingBoxConstraint(
             initial_state,initial_state, self.collocation_prog.initial_state()
         )
+        goal_ub = np.copy(goal_state)
+        goal_ub[2] = self.params.goal_speed_limit
+        goal_ub[3] = self.params.goal_speed_limit
+        goal_lb = np.copy(goal_state)
+        goal_lb[2] = -self.params.goal_speed_limit
+        goal_lb[3] = -self.params.goal_speed_limit
         self.collocation_prog.prog().AddBoundingBoxConstraint(
-            goal_state,goal_state, self.collocation_prog.final_state()
+            goal_lb,goal_ub, self.collocation_prog.final_state()
         )
                 
         #torque limits
@@ -75,12 +82,12 @@ class DirectCollocationTrajectoryGenerator(TrajectoryOptimizer):
         self.collocation_prog.AddFinalCost(self.collocation_prog.time() * self.params.time_cost)
         
         
-        x_guess = PiecewisePolynomial.FirstOrderHold([0, 1],np.column_stack((initial_state,goal_state)))
+        x_guess = PiecewisePolynomial.FirstOrderHold([0, 3],np.column_stack((initial_state,goal_state)))
         
         self.collocation_prog.SetInitialTrajectory(PiecewisePolynomial(), x_guess)
         
         sol = Solve(self.collocation_prog.prog())
-        assert sol.is_success()
+        assert sol.is_success(), sol.GetInfeasibleConstraintNames(self.collocation_prog.prog())
         
         
         return sol
