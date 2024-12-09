@@ -2,7 +2,7 @@ import numpy as np
 from acrobot import Acrobot
 from environment import Environment
 from controller_base import Controller, PathPlanner
-from pydrake.all import MathematicalProgram, OsqpSolver
+from pydrake.all import MathematicalProgram, OsqpSolver, PiecewisePolynomial
 from pydrake.solvers import Solve
 from pydrake.autodiffutils import AutoDiffXd
 
@@ -16,23 +16,27 @@ class ZeroController(Controller):
 
 
 class MPCController(Controller):
-    def __init__(self, acrobot: Acrobot, Q, R, Qf) -> None:
+    def __init__(self, acrobot: Acrobot, Q, R:np.ndarray, Qf) -> None:
         super().__init__(acrobot)
         self.Q = Q
-        self.R = R
+        self.R = R.reshape(acrobot.n_u,acrobot.n_u)
         self.Qf = Qf
         self.x_d = np.zeros(self.n_x)
         self.u_d = np.zeros(self.n_u)
-        self.last_u = np.zeros(self.n_u)
+        # self.last_u = np.zeros(self.n_u)
+        self.T = 0.1
     
     def update_target_state(self, goal_pos):
         super().update_target_state(goal_pos)
         self.x_d = np.hstack([self.acrobot.get_joint_angles(goal_pos),np.zeros(2)])
     
-    def compute_feedback(self, current_x):
+    def update_target_trajectory(self, x_traj:PiecewisePolynomial, u_traj:PiecewisePolynomial):
+        self.x_traj = x_traj
+        self.u_traj = u_traj
+    
+    def compute_feedback(self, current_x, traj_t):
         # Parameters for the QP
         N = 10
-        T = 0.1
         # Initialize mathematical program and decalre decision variables
         prog = MathematicalProgram()
         x = np.zeros((N, self.n_x), dtype="object")
@@ -44,8 +48,8 @@ class MPCController(Controller):
         # Add constraints and cost
         self._add_initial_state_constraint(prog, x, current_x)
         self._add_input_saturation_constraint(prog, u, N)
-        self._add_dynamics_constraint(prog, x, u, N, T, current_x)
-        self._add_cost(prog, x, u, N)
+        self._add_dynamics_constraint(prog, x, u, N, current_x, traj_t)
+        self._add_cost(prog, x, u, N, traj_t)
         # Solve the QP
         solver = OsqpSolver()
         result = solver.Solve(prog)
@@ -53,7 +57,7 @@ class MPCController(Controller):
         if result.is_success():
             u_mpc = np.array(result.GetSolution(u[0]))
             u_mpc += self.u_d
-            self.last_u = u_mpc
+            # self.last_u = u_mpc
         else:
             u_mpc = np.zeros(self.nu)
         return u_mpc
@@ -69,7 +73,14 @@ class MPCController(Controller):
         for i in range(N-1):
             prog.AddBoundingBoxConstraint(lb, ub, u[i])
 
-    def _add_dynamics_constraint(self, prog:MathematicalProgram, x, u, N, T, x_current):
+    def _add_dynamics_constraint(self, prog:MathematicalProgram, x, u, N, x_current, traj_t):
+        """
+        x, u: decision variables
+        N: number of knot points
+        T: time between knot points
+        x_current: the current state of the system
+        traj_t: t where x(t) approx. = x_current
+        """
         #for now, linearize around the current state and last input. Later, update this to 
         #linearize around a trajectory. Maybe the trajectory could be saved to self.trajectory
         # in a class method like update_target_trajectory(self, new_traj) or something.
@@ -77,18 +88,37 @@ class MPCController(Controller):
         # new_traj.x[k+(some kind of index into trajectory)], new_traj.u[k+(same index)]
                 
         for k in range(N-1):
-            #inputs to linearization SHOULD be x,u decision variables. How to make this work?
-            A, B = self.acrobot.discrete_time_linear_dynamics(T, x_current, self.last_u)
-            expr = x[k+1] - (A @ x[k] + B @ u[k])
+            #if we want to do time-varying linear MPC, inputs to linearization 
+            # SHOULD be x,u decision variables. How to make this work?
+            #Do the below for MPC tracking of predefined trajectory:
+            xd = self.x_traj.value(traj_t+(self.T*k)).flatten()
+            ud = self.u_traj.value(traj_t+(self.T*k)).flatten()
+            A, B = self.acrobot.discrete_time_linear_dynamics(self.T, xd, ud)
+            xdot = self.acrobot.continuous_time_full_dynamics(xd, ud)
+            expr = x[k+1] - (xdot + A @ (x[k] - xd) + B @ (u[k] - ud))
             prog.AddLinearEqualityConstraint(expr, np.zeros(self.n_x))
 
-    def _add_cost(self, prog:MathematicalProgram, x, u, N):
+    def _add_cost(self, prog:MathematicalProgram, x, u, N, traj_t):
+        QR = np.block([[self.Q, np.zeros((np.size(self.Q,0), np.size(self.R,1)))],
+                       [np.zeros((np.size(self.R,0), np.size(self.Q,1))), self.R]])
         for i in range(N-1):
+            xd = self.x_traj.value(traj_t+(self.T*i)).flatten()
+            ud = self.u_traj.value(traj_t+(self.T*i)).flatten()
             # prog.AddQuadraticCost((x[i] - self.x_d).T @ self.Q @ (x[i] - self.x_d))
             # prog.AddQuadraticCost((u[i] - self.u_d) * (self.R * (u[i] - self.u_d)))
-            prog.AddQuadraticCost(self.Q, np.zeros(self.n_x), x[i])
-            prog.AddQuadraticCost(self.R, np.zeros(self.n_u), u[i])
-        prog.AddQuadraticCost(self.Qf, np.zeros(self.n_x), x[N-1])
+            
+            # prog.AddQuadraticCost(self.Q, np.zeros(self.n_x), (x[i]-xd))
+            # prog.AddQuadraticCost(self.R, np.zeros(self.n_u), (u[i]-ud))
+            
+            # prog.AddQuadraticCost((x[i]-xd) @ self.Q @ (x[i]-xd))
+            # prog.AddQuadraticCost((u[i]-ud) @ self.R @ (u[i]-ud))
+            
+            xu = np.hstack(((x[i]-xd),(u[i]-ud)))
+            prog.AddQuadraticCost(xu.T @ QR @ xu)
+            
+        val = x[N-1] - self.x_traj.value(traj_t+(self.T*(N-1))).flatten()
+        prog.AddQuadraticCost(val @ self.Qf @ val)
+        # prog.AddQuadraticCost(self.Qf, np.zeros(self.n_x), x[N-1] - self.x_traj.value(traj_t+(self.T*(N-1))).flatten())
 
 
 ''' TODO: Modification Needed for Non-Linear MOC formulation'''

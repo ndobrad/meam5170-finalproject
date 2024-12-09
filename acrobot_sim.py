@@ -5,7 +5,7 @@ from scipy.integrate import solve_ivp
 from controller_base import Controller, PathPlanner, TrajectoryOptimizer
 from environment import Environment, Hold
 
-SimResult = namedtuple('SimResult', ['t','x','u','origin_offsets','pose','current_holds','next_holds'])
+SimResult = namedtuple('SimResult', ['t','x','u','origin_offsets','pose','current_holds','next_holds','trajectories','active_trajectories'])
 
 def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planner:PathPlanner, traj_opt:TrajectoryOptimizer):
     t0 = 0.0
@@ -29,6 +29,21 @@ def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planne
     #set attributes of guard fun
     guard.terminal = True #end solve_ivp if guard triggered
     
+    #initial conditions
+    current_origin_offset = origin_offsets[-1]
+    current_next_plan_step = next_plan_steps[-1]
+    goal_hold = path_planner.env.holds[plan[current_next_plan_step]]
+    goal_location = goal_hold.position - current_origin_offset #next hold location relative to robot base
+    controller.update_target_state(goal_location)
+    traj_sol = traj_opt.generate_trajectory(x[0],goal_location)
+    x_traj = traj_opt.collocation_prog.ReconstructStateTrajectory(traj_sol)
+    u_traj = traj_opt.collocation_prog.ReconstructInputTrajectory(traj_sol)
+    x_traj_collection = dict()
+    x_traj_collection[0] = x_traj
+    x_traj_col_idx = [0]
+    controller.update_target_trajectory(x_traj,u_traj)
+    traj_time = 0
+    
     while t[-1] < tf:
         current_time = t[-1]
         current_x = x[-1]
@@ -37,14 +52,13 @@ def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planne
         current_plan_step = active_plan_steps[-1]
         current_next_plan_step = next_plan_steps[-1]
         current_origin_offset = origin_offsets[-1]
+        current_x_traj_col_idx = x_traj_col_idx[-1]
 
         # If current_next_hold is None, then the robot is attached to the final goal and we can
         # stop computing inputs (but continue simulating until tf)
         if current_next_plan_step is not None:
-            goal_hold = path_planner.env.holds[plan[current_next_plan_step]]
-            goal_location = goal_hold.position - current_origin_offset #next hold location relative to robot base
-            controller.update_target_state(goal_location)
-            current_u_command = controller.compute_feedback(current_x)
+
+            current_u_command = controller.compute_feedback(current_x, traj_time)
             # TODO: uncomment below if we need to constrain input
             # current_u_command = np.clip(current_u_command, acrobot.umin, acrobot.umax)
         else:
@@ -77,14 +91,25 @@ def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planne
                     current_next_plan_step += 1
                     goal_hold = path_planner.env.holds[plan[current_next_plan_step]]
                     goal_location = goal_hold.position - current_origin_offset
+                    traj_sol = traj_opt.generate_trajectory(current_x, goal_location)
+                    x_traj = traj_opt.collocation_prog.ReconstructStateTrajectory(traj_sol)
+                    u_traj = traj_opt.collocation_prog.ReconstructInputTrajectory(traj_sol)
+                    current_x_traj_col_idx += 1
+                    x_traj_collection[current_x_traj_col_idx] = x_traj
+                    controller.update_target_trajectory(x_traj,u_traj)
+                    traj_time = 0
+                    # controller.update_target_state(goal_location)
                 else:
                     current_next_plan_step = None
+                    current_x_traj_col_idx = None
                     goal_hold = terminal_hold
                     goal_location = goal_hold.position
                 
             else:
                 timestep_finished = True
 
+            traj_time += sol.t[-1] #advance the trajectory timestep by the amount of time simulated this loop
+            
         # Record time, state, and inputs
         t.append(t[-1] + dt)
         x.append(sol.y[:, -1])
@@ -93,6 +118,7 @@ def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planne
         active_plan_steps.append(current_plan_step)
         next_plan_steps.append(current_next_plan_step)
         origin_offsets.append(current_origin_offset)
+        x_traj_col_idx.append(current_x_traj_col_idx)
 
     #translate the lists of PathPlanner indices into lists of Environment.holds indices
     active_holds = np.array([plan[q] for q in active_plan_steps])
@@ -102,7 +128,9 @@ def simulate_acrobot(x0, tf, acrobot:Acrobot, controller:Controller, path_planne
                     origin_offsets=np.array(origin_offsets),
                     pose=np.array(pose), 
                     current_holds=active_holds, 
-                    next_holds=target_holds)
+                    next_holds=target_holds,
+                    trajectories=x_traj_collection,
+                    active_trajectories=x_traj_col_idx)
    
     return ret
 

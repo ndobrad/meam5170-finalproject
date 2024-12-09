@@ -32,7 +32,11 @@ class DirectCollocationTrajectoryGenerator(TrajectoryOptimizer):
     def set_parameters(self, params:DirectCollocationParameters):
         self.params = params
         
-    def generate_trajectory(self, initial_state, goal_state) -> MathematicalProgramResult:
+    def generate_trajectory(self, initial_state, goal_hold_pos) -> MathematicalProgramResult:
+                
+        # goal_state = self.acrobot.get_joint_angles(goal_hold_pos,(goal_hold_pos[0] > 0))
+        goal_state = np.hstack([self.acrobot.get_joint_angles(goal_hold_pos,(goal_hold_pos[0] > 0)),np.zeros(2)])
+        # goal_state = np.hstack([self.acrobot.get_joint_angles(goal_hold_pos,True),np.zeros(2)])
         
         # TODO: initialize acrobot context? create new context and initialize it
         context = self.acrobot.plant.CreateDefaultContext()

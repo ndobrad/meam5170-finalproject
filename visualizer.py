@@ -3,9 +3,11 @@ import numpy as np
 import matplotlib.animation as animation
 from acrobot import Acrobot
 from environment import Environment, Hold
+from pydrake.all import PiecewisePolynomial
+from typing import Dict
 
 class AcrobotVisualizer:
-    def __init__(self, acrobot:Acrobot, env:Environment) -> None:
+    def __init__(self, acrobot:Acrobot, env:Environment, trajectories: Dict[int,PiecewisePolynomial]=None) -> None:
         self.fig, self.ax = plt.subplots()
         self.ax.set_aspect("equal")
         self.ax.set_xlim(env.xmin, env.xmax)
@@ -20,6 +22,10 @@ class AcrobotVisualizer:
         
         self.start_hold = None
         self.goal_hold = None
+        
+        self.trajectories = trajectories
+        self.current_traj = None
+        self.current_traj_plot = None
         
 
         self.current_hold_color = [0.8, 0, 0.8]
@@ -43,7 +49,7 @@ class AcrobotVisualizer:
                 0.02 * np.array([1, 1, -1, -1, 1])
             )
         )
-        a = np.linspace(0, 2 * np.pi, 50)
+        a = np.linspace(0, 2 * np.pi, 20)
         self.hold_points = np.vstack(
             (
                 np.cos(a),
@@ -51,6 +57,12 @@ class AcrobotVisualizer:
             )
         )
         
+        self.trajectory_trace_fill = self.ax.fill(
+                0.08 * self.hold_points[0, :], 
+                0.08 * self.hold_points[1, :], 
+                zorder=5, edgecolor="k",
+                facecolor=[0, 1, 0]
+        )
         
         self.red_link_fill = self.ax.fill(
             self.red_link[0, :], self.red_link[1, :], zorder=3, edgecolor="r",
@@ -64,7 +76,7 @@ class AcrobotVisualizer:
         self._setup_environment(self.env.start_idx, self.env.goal_idx)
         
         
-    def draw(self, x, t, origin_offset=None, pose=None, current_hold=None, next_hold=None):
+    def draw(self, x, t, origin_offset=None, pose=None, current_hold=None, next_hold=None, active_trajectory:PiecewisePolynomial=None):
         self._update_environment(current_hold, next_hold)
         R = np.array([
             [np.cos(-np.pi/2 + x[0]), -np.sin(-np.pi/2 + x[0])],
@@ -99,7 +111,21 @@ class AcrobotVisualizer:
             self.red_link_fill[0].get_path().vertices[:,0] = origin_offset[0] + joint_pos[0] + p[0,:]
             self.red_link_fill[0].get_path().vertices[:,1] = origin_offset[1] + joint_pos[1] + p[1,:]
         
+        self._draw_trajectory(active_trajectory)
         self.ax.set_title("t = {:.1f}".format(t))
+    
+    def _draw_trajectory(self, active_trajectory):
+        if active_trajectory != self.current_traj:
+            self.current_traj = active_trajectory
+            traj_to_draw = self.trajectories[active_trajectory]
+            t = np.linspace(0,traj_to_draw.end_time(),500)
+            x = np.zeros((len(t),2))
+            for i in range(len(t)):
+                x[i,:] = self.acrobot.get_tip_position(traj_to_draw.value(t[i]).flatten())
+            if self.current_traj_plot is not None:
+                self.current_traj_plot.remove()
+            self.current_traj_plot, = self.ax.plot(x[:,0], x[:,1])
+        #update moving target
         
     def _setup_environment(self, origin_hold=None, goal_hold=None):
         # for each hold in self.env
@@ -154,9 +180,9 @@ class AcrobotVisualizer:
     
 
 
-def create_animation(bot_vis:AcrobotVisualizer, x_traj, t, origin_offsets, poses, current_holds, next_holds):
+def create_animation(bot_vis:AcrobotVisualizer, x_traj, t, origin_offsets, poses, current_holds, next_holds,active_trajectories):
     def update(i):
-        bot_vis.draw(x_traj[i,:], t[i], origin_offsets[i,:], poses[i], current_holds[i], next_holds[i])
+        bot_vis.draw(x_traj[i,:], t[i], origin_offsets[i,:], poses[i], current_holds[i], next_holds[i], active_trajectories[i])
 
     ani = animation.FuncAnimation(
         bot_vis.fig, update, x_traj.shape[0], interval=(t[1]-t[0]) * 1000, 

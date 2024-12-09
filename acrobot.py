@@ -32,8 +32,8 @@ class Acrobot(object):
         self.n_x = self.n_q * 2
         self.n_u = 1
         
-        self.umin = -10000
-        self.umax = 10000
+        self.umin = -10
+        self.umax = 10
         
     def reset_map(self, x):
         """
