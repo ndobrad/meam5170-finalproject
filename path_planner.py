@@ -148,8 +148,8 @@ if __name__ == "__main__":
     env = Environment()
     env.generate_static_random((0, 10, 0, 10), (1, 1), (9, 9), 500, 1, 0.99)
     planner = AStarPathPlanner(env)
-    path_energy = planner.A_star()
-    path_distance = planner.A_star(False)
+    path_energy = planner.calculate_path()
+    path_distance = planner.calculate_path(False)
     paths = {
         "Energy-based": path_energy,
         "Distance-based": path_distance

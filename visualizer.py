@@ -111,10 +111,11 @@ class AcrobotVisualizer:
             self.red_link_fill[0].get_path().vertices[:,0] = origin_offset[0] + joint_pos[0] + p[0,:]
             self.red_link_fill[0].get_path().vertices[:,1] = origin_offset[1] + joint_pos[1] + p[1,:]
         
-        self._draw_trajectory(active_trajectory)
+        if self.trajectories is not None:
+            self._draw_trajectory(active_trajectory, origin_offset)
         self.ax.set_title("t = {:.1f}".format(t))
     
-    def _draw_trajectory(self, active_trajectory):
+    def _draw_trajectory(self, active_trajectory, trajectory_offset):
         if active_trajectory != self.current_traj and active_trajectory is not None:
             self.current_traj = active_trajectory
             traj_to_draw = self.trajectories[active_trajectory]
@@ -123,11 +124,11 @@ class AcrobotVisualizer:
             for i in range(len(t)):
                 x[i,:] = self.acrobot.get_tip_position(traj_to_draw.value(t[i]).flatten())
             if self.current_traj_plot is not None:
-                self.current_traj_plot.remove()
-            self.current_traj_plot, = self.ax.plot(x[:,0], x[:,1])
-        # elif active_trajectory is None:
-        #     if self.current_traj_plot is not None:
-        #         self.current_traj_plot.remove()
+                self.current_traj_plot.set_color([0, 0.5, 0])
+            self.current_traj_plot, = self.ax.plot(x[:,0]+trajectory_offset[0], x[:,1]+trajectory_offset[1],'g')
+        elif active_trajectory is None:
+            if self.current_traj_plot is not None:
+                self.current_traj_plot.set_color([0, 0.5, 0])
         #update moving target
         
     def _setup_environment(self, origin_hold=None, goal_hold=None):

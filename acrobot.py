@@ -174,4 +174,7 @@ class Acrobot(object):
         else:
             ret[1] = -np.arccos((x**2+y**2-self.l1**2-self.l2**2)/(2*self.l1*self.l2))
             ret[0] = np.arctan2(y,x) - np.arctan2(self.l2*np.sin(ret[1]),self.l1+self.l2*np.cos(ret[1]))
+            
+        ret[0] = np.arctan2(np.sin(ret[0]),np.cos(ret[0]))
+        ret[1] = np.arctan2(np.sin(ret[1]),np.cos(ret[1]))
         return ret
