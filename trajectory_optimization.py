@@ -13,12 +13,12 @@ class DirectCollocationParameters:
         self.minimum_time_step = 0.1
         self.maximum_time_step = 0.8
         self.time_cost = 0
-        self.Q = np.array([[ 0,  0, 0, 0],
-                           [ 0,  0, 0, 0],
+        self.Q = np.array([[ 1,  0, 0, 0],
+                           [ 0,  1, 0, 0],
                            [ 0,  0, 1, 0],
                            [ 0,  0, 0, 1]])
         self.Qf = self.Q
-        self.R = 10
+        self.R = 1
         self.goal_speed_limit = 100
 
 
@@ -54,7 +54,7 @@ class DirectCollocationTrajectoryGenerator(TrajectoryOptimizer):
         x = self.collocation_prog.state() 
         
         
-        self.collocation_prog.AddEqualTimeIntervalsConstraints()
+        # self.collocation_prog.AddEqualTimeIntervalsConstraints()
         
         #initial input is 0, initial state is initial_state
         # later, this may need to be changed to be the u when the reset map is hit
@@ -91,7 +91,7 @@ class DirectCollocationTrajectoryGenerator(TrajectoryOptimizer):
         self.collocation_prog.SetInitialTrajectory(PiecewisePolynomial(), x_guess)
         
         sol = Solve(self.collocation_prog.prog())
-        # assert sol.is_success(), sol.GetInfeasibleConstraintNames(self.collocation_prog.prog())
+        assert sol.is_success(), sol.GetInfeasibleConstraintNames(self.collocation_prog.prog())
         
         
         return sol
