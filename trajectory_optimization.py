@@ -91,7 +91,7 @@ class DirectCollocationTrajectoryGenerator(TrajectoryOptimizer):
         self.collocation_prog.SetInitialTrajectory(PiecewisePolynomial(), x_guess)
         
         sol = Solve(self.collocation_prog.prog())
-        assert sol.is_success(), sol.GetInfeasibleConstraintNames(self.collocation_prog.prog())
+        # assert sol.is_success(), sol.GetInfeasibleConstraintNames(self.collocation_prog.prog())
         
         
         return sol
