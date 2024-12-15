@@ -8,94 +8,30 @@ import matplotlib.pyplot as plt
 from environment import Environment
 from controller_base import PathPlanner
 
-
 class AStarPathPlanner(PathPlanner):
-    def __init__(self, env:Environment, trajectory_inputs=None):
+    def __init__(self, env:Environment):
         super().__init__(env)
         self.bounds = (env.xmin, env.xmax, env.ymin, env.ymax)
         self.holds = env.holds
         self.range = env.spacing + env.grasp_radius
         self.start_idx = env.start_idx
         self.goal_idx = env.goal_idx
-        self.trajectory_inputs = trajectory_inputs
-        # normalize trajectory optimization grid
-        traj_x_min, traj_x_max, traj_y_min, traj_y_max = [0.0, 0.0, 2.0, 2.0]
-        trajectory_inputs[:, 0:2] = (trajectory_inputs[:, 0:2] - [traj_x_min, traj_y_min]) / [
-            (traj_x_max - traj_x_min),
-            (traj_y_max - traj_y_min)
-        ]
-        trajectory_inputs[:, 2:4] = (trajectory_inputs[:, 2:4] - [traj_x_min, traj_y_min]) / [
-            (traj_x_max - traj_x_min),
-            (traj_y_max - traj_y_min)
-        ]
 
     def l2_heuristic(self, curr_idx):
         curr_pos = self.holds[curr_idx].position
         goal_pos = self.holds[self.goal_idx].position
         return np.linalg.norm(np.array(curr_pos) - np.array(goal_pos))
     
-    def get_closest_trajectory_input(self, prev_idx, next_idx):
-        # normalize hold pos within env
-        prev_pos = np.array(self.holds[prev_idx].position)
-        prev_pos_scaled = (prev_pos[0] - [self.bounds[0], self.bounds[2]]) / [
-            (self.bounds[1] - self.bounds[0]),
-            (self.bounds[3] - self.bounds[2])            
-        ]
-        next_pos = np.array(self.holds[next_idx].position)
-        next_pos_scaled = (next_pos[0] - [self.bounds[0], self.bounds[2]]) / [
-            (self.bounds[1] - self.bounds[0]),
-            (self.bounds[3] - self.bounds[2])            
-        ]
-        prev_next_vec = np.array(next_pos_scaled) - np.array(prev_pos_scaled)
-        prev_next_mag = np.linalg.norm(prev_next_vec)
-        prev_next_unit = prev_next_vec / prev_next_mag if prev_next_mag > 0 else np.zeros_like(prev_next_vec)
-        start_end_units = self.trajectory_inputs[:, 2:4] - self.trajectory_inputs[:, 0:2]
-        start_end_mags = np.linalg.norm(start_end_units, axis=1)
-        # orientation similarity
-        cos_similarities = np.dot(start_end_units, prev_next_unit)
-        max_cos_similarity = np.max(cos_similarities)
-        closest_orientation_rows = self.trajectory_inputs[cos_similarities == max_cos_similarity]
-        # distance similarity
-        start_end_mags_closest = start_end_mags[cos_similarities == max_cos_similarity]
-        closest_distances = np.abs(start_end_mags_closest - prev_next_mag)
-        closest_pairs = closest_orientation_rows[np.argmin(closest_distances)]
-        # minimum positive input
-        valid_closest_pairs = closest_pairs[closest_pairs[:, 7] >= 0]
-        if valid_closest_pairs.size == 0:
-            return None
-        return np.min(valid_closest_pairs[:, 7])
+    def edge_cost(self, prev_idx, curr_idx, next_idx):
 
-    def edge_cost(self, prev_idx, curr_idx, next_idx, energy=True, trajectories=False):
-        # simplified torque-based model of simple pendulum
-        g = 9.81
-        m = 10.0
-        alpha = 0.0
-        beta = 0.0
         prev_pos = np.array(self.holds[prev_idx].position)
         curr_pos = np.array(self.holds[curr_idx].position)
         next_pos = np.array(self.holds[next_idx].position)
         # change pendulum length halfway through arc
         L_prev = np.linalg.norm(prev_pos - curr_pos)
         L_next = np.linalg.norm(next_pos - curr_pos)
-        if not energy:
-            return L_next
-        if trajectories:
-            return self.get_closest_trajectory_input(prev_idx, next_idx)
-        if L_prev <= 0:
-            L_prev = 0.05
-        if L_next <= 0:
-            L_next = 0.05
-        delta_x_prev = curr_pos[0] - prev_pos[0]
-        delta_x_next = next_pos[0] - curr_pos[0]
-        sin_theta_prev = delta_x_prev / L_prev
-        sin_theta_next = delta_x_next / L_next
-        # gravitational torque
-        tau_prev = m * g * L_prev * sin_theta_prev
-        tau_next = m * g * L_next * sin_theta_next
-        # gravitational potential energy
-        delta_y = next_pos[1] - prev_pos[1]
-        delta_E_g = m * g * delta_y
-        return tau_prev + tau_next + beta * delta_E_g + alpha * L_next
+
+        return L_next
     
     def get_neighbors(self, curr_idx):
         curr_pos = np.array(self.holds[curr_idx].position)
@@ -108,7 +44,7 @@ class AStarPathPlanner(PathPlanner):
                     neighbors.append(idx)
         return neighbors
 
-    def calculate_path(self, energy=True, trajectories=False):
+    def calculate_path(self):
         """
         Calculate path using A*
         """
@@ -132,7 +68,7 @@ class AStarPathPlanner(PathPlanner):
             for neighbor_idx in self.get_neighbors(curr_idx):
                 if neighbor_idx in closed_set:
                     continue
-                new_g = g_costs[curr_idx] + self.edge_cost(curr_idx, neighbor_idx, energy, trajectories)
+                new_g = g_costs[curr_idx] + self.edge_cost(curr_idx, neighbor_idx)
                 if neighbor_idx not in g_costs or new_g < g_costs[neighbor_idx]:
                     g_costs[neighbor_idx] = new_g
                     f = self.l2_heuristic(neighbor_idx)
@@ -175,7 +111,87 @@ class AStarPathPlanner(PathPlanner):
         plt.savefig(file_path)
         pass
     
+class TrajectoryMatchPathPlanner(AStarPathPlanner):
+    def __init__(self, env:Environment, trajectory_inputs):
+        super().__init__(env)
+        self.trajectory_inputs = trajectory_inputs
+        # normalize trajectory optimization grid
+        # traj_x_min, traj_x_max, traj_y_min, traj_y_max = [0.0, 0.0, 2.0, 2.0]
+        # trajectory_inputs[:, 0:2] = (trajectory_inputs[:, 0:2] - [traj_x_min, traj_y_min]) / [
+        #     (traj_x_max - traj_x_min),
+        #     (traj_y_max - traj_y_min)
+        # ]
+        # trajectory_inputs[:, 2:4] = (trajectory_inputs[:, 2:4] - [traj_x_min, traj_y_min]) / [
+        #     (traj_x_max - traj_x_min),
+        #     (traj_y_max - traj_y_min)
+        # ]
+               
+    def edge_cost(self, prev_idx, curr_idx, next_idx):
+        prev_pos = np.array(self.holds[prev_idx].position)
+        curr_pos = np.array(self.holds[curr_idx].position)
+        next_pos = np.array(self.holds[next_idx].position)
+
+        # normalize hold pos within env
+        prev_pos_scaled = (prev_pos[0] - [self.bounds[0], self.bounds[2]]) / [
+            (self.bounds[1] - self.bounds[0]),
+            (self.bounds[3] - self.bounds[2])            
+        ]
+        next_pos_scaled = (next_pos[0] - [self.bounds[0], self.bounds[2]]) / [
+            (self.bounds[1] - self.bounds[0]),
+            (self.bounds[3] - self.bounds[2])            
+        ]
+        prev_next_vec = np.array(next_pos_scaled) - np.array(prev_pos_scaled)
+        prev_next_mag = np.linalg.norm(prev_next_vec)
+        prev_next_unit = prev_next_vec / prev_next_mag if prev_next_mag > 0 else np.zeros_like(prev_next_vec)
+        start_end_units = self.trajectory_inputs[:, 2:4] - self.trajectory_inputs[:, 0:2]
+        start_end_mags = np.linalg.norm(start_end_units, axis=1)
+        # orientation similarity
+        cos_similarities = np.dot(start_end_units, prev_next_unit)
+        max_cos_similarity = np.max(cos_similarities)
+        closest_orientation_rows = self.trajectory_inputs[cos_similarities == max_cos_similarity]
+        # distance similarity
+        start_end_mags_closest = start_end_mags[cos_similarities == max_cos_similarity]
+        closest_distances = np.abs(start_end_mags_closest - prev_next_mag)
+        closest_pairs = closest_orientation_rows[np.argmin(closest_distances)]
+        # minimum positive input
+        valid_closest_pairs = closest_pairs[closest_pairs[:, 7] >= 0]
+        if valid_closest_pairs.size == 0:
+            return None
+        return np.min(valid_closest_pairs[:, 7])
+
+class EnergyPathPlanner(AStarPathPlanner):
+    def __init__(self, env):
+        super().__init__(env)
     
+    def edge_cost(self, prev_idx, curr_idx, next_idx):
+        # simplified torque-based model of simple pendulum
+        g = 9.81
+        m = 10.0
+        alpha = 0.0
+        beta = 0.0
+        prev_pos = np.array(self.holds[prev_idx].position)
+        curr_pos = np.array(self.holds[curr_idx].position)
+        next_pos = np.array(self.holds[next_idx].position)
+        # change pendulum length halfway through arc
+        L_prev = np.linalg.norm(prev_pos - curr_pos)
+        L_next = np.linalg.norm(next_pos - curr_pos)
+        if L_prev <= 0:
+            L_prev = 0.05
+        if L_next <= 0:
+            L_next = 0.05
+        delta_x_prev = curr_pos[0] - prev_pos[0]
+        delta_x_next = next_pos[0] - curr_pos[0]
+        sin_theta_prev = delta_x_prev / L_prev
+        sin_theta_next = delta_x_next / L_next
+        # gravitational torque
+        tau_prev = m * g * L_prev * sin_theta_prev
+        tau_next = m * g * L_next * sin_theta_next
+        # gravitational potential energy
+        delta_y = next_pos[1] - prev_pos[1]
+        delta_E_g = m * g * delta_y
+        return tau_prev + tau_next + beta * delta_E_g + alpha * L_next
+
+
 
 class TrivialPathPlanner(PathPlanner):
     """
@@ -190,7 +206,7 @@ if __name__ == "__main__":
     # plot A* with different edge costs
     env = Environment()
     env.generate_static_random((0, 10, 0, 10), (1, 1), (9, 9), 500, 1, 0.99)
-    trajectory_inputs = np.genfromtxt("placeholder_input.csv", delimiter=',')
+    trajectory_inputs = np.genfromtxt("collocation_sim_results.csv", delimiter=',')
     planner = AStarPathPlanner(env, trajectory_inputs)
     path_energy = planner.calculate_path()
     path_trajectory = planner.calculate_path(trajectories=True)
