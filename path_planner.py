@@ -29,10 +29,18 @@ class AStarPathPlanner(PathPlanner):
         return np.linalg.norm(np.array(curr_pos) - np.array(goal_pos))
     
     def edge_cost(self, prev_idx, curr_idx, next_idx):
-
-        prev_pos = np.array(self.holds[prev_idx].position)
+        
         curr_pos = np.array(self.holds[curr_idx].position)
+        
+        # if prev_idx is -1, then curr_idx is the initial hold 
+        # of the environment and the previous position should be the 
+        # "at rest" state of the arm, straight down from the current hold
+        if prev_idx == -1:
+            prev_pos = curr_pos - np.array([0,self.range])
+        else:
+            prev_pos = np.array(self.holds[prev_idx].position)
         next_pos = np.array(self.holds[next_idx].position)
+        
         # change pendulum length halfway through arc
         L_prev = np.linalg.norm(prev_pos - curr_pos)
         L_next = np.linalg.norm(next_pos - curr_pos)
@@ -55,32 +63,32 @@ class AStarPathPlanner(PathPlanner):
         Calculate path using A*
         """
         open_set = []   # priority queue with (cost, index)
-        heapq.heappush(open_set, (0, self.start_idx))
+        heapq.heappush(open_set, (0, NodeWithInitialState(-1, self.start_idx)))
         closed_set = set()
-        g_costs = {self.start_idx: 0}
+        g_costs = {NodeWithInitialState(-1, self.start_idx): 0}
         parent = {}
         while open_set:
-            _, curr_idx = heapq.heappop(open_set)
-            if curr_idx in closed_set:
+            _, curr_node = heapq.heappop(open_set)
+            if curr_node in closed_set:
                 continue
-            closed_set.add(curr_idx)
-            if curr_idx == self.goal_idx:
-                path = [curr_idx]
-                while curr_idx in parent:
-                    curr_idx = parent[curr_idx]
-                    path.append(curr_idx)
+            closed_set.add(curr_node)
+            if curr_node.curr_idx == self.goal_idx:
+                path = [curr_node.curr_idx]
+                while curr_node in parent:
+                    curr_node = parent[curr_node]
+                    path.append(curr_node)
                 path.reverse()
                 return path
-            for neighbor_idx in self.get_neighbors(curr_idx):
+            for neighbor_idx in self.get_neighbors(curr_node):
                 if neighbor_idx in closed_set:
                     continue
-                new_g = g_costs[curr_idx] + self.edge_cost(prev_idx, curr_idx, neighbor_idx)
+                new_g = g_costs[curr_node] + self.edge_cost(curr_node.prev_idx, curr_node.curr_idx, neighbor_idx)
                 if neighbor_idx not in g_costs or new_g < g_costs[neighbor_idx]:
                     g_costs[neighbor_idx] = new_g
                     f = self.l2_heuristic(neighbor_idx)
                     total_cost = new_g + f
                     heapq.heappush(open_set, (total_cost, neighbor_idx))
-                    parent[neighbor_idx] = curr_idx
+                    parent[neighbor_idx] = curr_node
         return []
     
     def plot(self, env, paths, file_path):
