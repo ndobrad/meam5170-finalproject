@@ -13,7 +13,10 @@ class AStarPathPlanner(PathPlanner):
         super().__init__(env)
         self.bounds = (env.xmin, env.xmax, env.ymin, env.ymax)
         self.holds = env.holds
-        self.range = env.spacing + env.grasp_radius
+        # self.range = env.spacing + env.grasp_radius
+        self.range = 3 # reach of the Acrobot
+        assert env.start_idx is not None
+        assert env.goal_idx is not None
         self.start_idx = env.start_idx
         self.goal_idx = env.goal_idx
 
@@ -24,11 +27,17 @@ class AStarPathPlanner(PathPlanner):
     
     def edge_cost(self, prev_idx, curr_idx, next_idx):
 
-        prev_pos = np.array(self.holds[prev_idx].position)
         curr_pos = np.array(self.holds[curr_idx].position)
+        
+        # if prev_idx is -1, then curr_idx is the initial hold 
+        # of the environment and the previous position should be the 
+        # "at rest" state of the arm, straight down from the current hold
+        if prev_idx is None:
+            prev_pos = curr_pos - np.array([0,self.range])
+        else:
+            prev_pos = np.array(self.holds[prev_idx].position)
         next_pos = np.array(self.holds[next_idx].position)
-        # change pendulum length halfway through arc
-        L_prev = np.linalg.norm(prev_pos - curr_pos)
+        
         L_next = np.linalg.norm(next_pos - curr_pos)
 
         return L_next
@@ -52,8 +61,10 @@ class AStarPathPlanner(PathPlanner):
         heapq.heappush(open_set, (0, self.start_idx))
         closed_set = set()
         g_costs = {self.start_idx: 0}
-        parent = {}
+        parent = {self.start_idx: None}
         while open_set:
+            # if len(closed_set) % 5 == 0:
+            #     print("closed set contains {} nodes".format(len(closed_set)))
             _, curr_idx = heapq.heappop(open_set)
             if curr_idx in closed_set:
                 continue
@@ -62,13 +73,14 @@ class AStarPathPlanner(PathPlanner):
                 path = [curr_idx]
                 while curr_idx in parent:
                     curr_idx = parent[curr_idx]
-                    path.append(curr_idx)
+                    if curr_idx is not None:
+                        path.append(curr_idx)
                 path.reverse()
                 return path
             for neighbor_idx in self.get_neighbors(curr_idx):
                 if neighbor_idx in closed_set:
                     continue
-                new_g = g_costs[curr_idx] + self.edge_cost(curr_idx, neighbor_idx)
+                new_g = g_costs[curr_idx] + self.edge_cost(parent[curr_idx], curr_idx, neighbor_idx)
                 if neighbor_idx not in g_costs or new_g < g_costs[neighbor_idx]:
                     g_costs[neighbor_idx] = new_g
                     f = self.l2_heuristic(neighbor_idx)
@@ -114,49 +126,39 @@ class AStarPathPlanner(PathPlanner):
 class TrajectoryMatchPathPlanner(AStarPathPlanner):
     def __init__(self, env:Environment, trajectory_inputs):
         super().__init__(env)
-        self.trajectory_inputs = trajectory_inputs
-        # normalize trajectory optimization grid
-        # traj_x_min, traj_x_max, traj_y_min, traj_y_max = [0.0, 0.0, 2.0, 2.0]
-        # trajectory_inputs[:, 0:2] = (trajectory_inputs[:, 0:2] - [traj_x_min, traj_y_min]) / [
-        #     (traj_x_max - traj_x_min),
-        #     (traj_y_max - traj_y_min)
-        # ]
-        # trajectory_inputs[:, 2:4] = (trajectory_inputs[:, 2:4] - [traj_x_min, traj_y_min]) / [
-        #     (traj_x_max - traj_x_min),
-        #     (traj_y_max - traj_y_min)
-        # ]
+        self.trajectory_inputs = trajectory_inputs[trajectory_inputs[:, 7] >= 0]
+        self.chosen_trajectories:dict[tuple,any] = {}
                
     def edge_cost(self, prev_idx, curr_idx, next_idx):
-        prev_pos = np.array(self.holds[prev_idx].position)
-        curr_pos = np.array(self.holds[curr_idx].position)
-        next_pos = np.array(self.holds[next_idx].position)
+        curr_pos = self.holds[curr_idx].position
+        
+        # if prev_idx is -1, then curr_idx is the initial hold 
+        # of the environment and the previous position should be the 
+        # "at rest" state of the arm, straight down from the current hold
+        if prev_idx is None:
+            prev_pos = curr_pos - np.array([0,self.range])
+        else:
+            prev_pos = self.holds[prev_idx].position
+        next_pos = self.holds[next_idx].position
 
-        # normalize hold pos within env
-        prev_pos_scaled = (prev_pos[0] - [self.bounds[0], self.bounds[2]]) / [
-            (self.bounds[1] - self.bounds[0]),
-            (self.bounds[3] - self.bounds[2])            
-        ]
-        next_pos_scaled = (next_pos[0] - [self.bounds[0], self.bounds[2]]) / [
-            (self.bounds[1] - self.bounds[0]),
-            (self.bounds[3] - self.bounds[2])            
-        ]
-        prev_next_vec = np.array(next_pos_scaled) - np.array(prev_pos_scaled)
-        prev_next_mag = np.linalg.norm(prev_next_vec)
-        prev_next_unit = prev_next_vec / prev_next_mag if prev_next_mag > 0 else np.zeros_like(prev_next_vec)
-        start_end_units = self.trajectory_inputs[:, 2:4] - self.trajectory_inputs[:, 0:2]
-        start_end_mags = np.linalg.norm(start_end_units, axis=1)
-        # orientation similarity
-        cos_similarities = np.dot(start_end_units, prev_next_unit)
-        max_cos_similarity = np.max(cos_similarities)
-        closest_orientation_rows = self.trajectory_inputs[cos_similarities == max_cos_similarity]
-        # distance similarity
-        start_end_mags_closest = start_end_mags[cos_similarities == max_cos_similarity]
-        closest_distances = np.abs(start_end_mags_closest - prev_next_mag)
-        closest_pairs = closest_orientation_rows[np.argmin(closest_distances)]
+        # get prev/next positions relative to current position
+        prev_pos_relative = prev_pos - curr_pos
+        next_pos_relative = next_pos - curr_pos
+        
+        diff = self.trajectory_inputs[:,0:4] - np.hstack((prev_pos_relative, next_pos_relative))
+
+        diff_norm = [np.dot(r,r) for r in diff]
+        # diff_norm = 
+
+        closest_pairs = self.trajectory_inputs[np.min(diff_norm) == diff_norm,:]
+       
         # minimum positive input
         valid_closest_pairs = closest_pairs[closest_pairs[:, 7] >= 0]
+        
         if valid_closest_pairs.size == 0:
             return None
+        chosen_trajectory = valid_closest_pairs[np.argmin(valid_closest_pairs[:, 7])]
+        self.chosen_trajectories[(prev_idx, curr_idx, next_idx)] = chosen_trajectory
         return np.min(valid_closest_pairs[:, 7])
 
 class EnergyPathPlanner(AStarPathPlanner):
@@ -169,9 +171,17 @@ class EnergyPathPlanner(AStarPathPlanner):
         m = 10.0
         alpha = 0.0
         beta = 0.0
-        prev_pos = np.array(self.holds[prev_idx].position)
+        
         curr_pos = np.array(self.holds[curr_idx].position)
+        # if prev_idx is -1, then curr_idx is the initial hold 
+        # of the environment and the previous position should be the 
+        # "at rest" state of the arm, straight down from the current hold
+        if prev_idx is None:
+            prev_pos = curr_pos - np.array([0,self.range])
+        else:
+            prev_pos = np.array(self.holds[prev_idx].position)
         next_pos = np.array(self.holds[next_idx].position)
+        
         # change pendulum length halfway through arc
         L_prev = np.linalg.norm(prev_pos - curr_pos)
         L_next = np.linalg.norm(next_pos - curr_pos)
