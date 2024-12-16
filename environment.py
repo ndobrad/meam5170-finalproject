@@ -139,55 +139,82 @@ class Environment:
         self.goal_idx = num_holds - 1
 
     def generate_static_random(self, grid_bounds, start, goal, num_holds, spacing, goal_bias=0.95, seed=17):
-            """
-            Args:
-                grid_bounds (tuple): (xmin, xmax, ymin, ymax) float values for grid boundary
-                start (tuple): (x, y) float values of starting hold position
-                goal (tuple): (x, y) float values of target hold position
-                num_holds (int): number of holds
-                spacing (float): maximum space (m) between any two holds
-            Returns:
-                None, environment is generated in place
-            """
-            self.spacing = spacing
-            self.xmin, self.xmax, self.ymin, self.ymax = grid_bounds
-            random.seed(seed)
-            goal_reachable = False
-            self.add_hold(start, self.grasp_radius)
-            self.start_idx = 0
+        """
+        Args:
+            grid_bounds (tuple): (xmin, xmax, ymin, ymax) float values for grid boundary
+            start (tuple): (x, y) float values of starting hold position
+            goal (tuple): (x, y) float values of target hold position
+            num_holds (int): number of holds
+            spacing (float): maximum space (m) between any two holds
+        Returns:
+            None, environment is generated in place
+        """
+        self.spacing = spacing
+        self.xmin, self.xmax, self.ymin, self.ymax = grid_bounds
+        random.seed(seed)
+        goal_reachable = False
+        self.add_hold(start, self.grasp_radius)
+        self.start_idx = 0
 
-            def weighted_sample():
-                grid = {}   # (cell bottom left corner coords, num holds in cell)
-                for hold in self.holds:
-                    cell = (hold.position[0] // spacing, hold.position[1] // spacing)
-                    grid[cell] = grid.get(cell, 0) + 1
-                min_density_cell = min(grid, key=lambda cell: grid[cell])
-                x = random.uniform(min_density_cell[0] * spacing, (min_density_cell[0] + 1) * spacing)
-                y = random.uniform(min_density_cell[1] * spacing, (min_density_cell[1] + 1) * spacing)
-                return (x, y)
-            
-            def l2_dist(p1, p2):
-                return np.linalg.norm(np.array(p1) - np.array(p2))
-            
-            # RRT
-            while len(self.holds) < num_holds:
-                if random.random() < goal_bias:
-                    sample = weighted_sample()
-                else:
-                    sample = goal
-                nearest_node = min(self.holds, key=lambda h: l2_dist(sample, h.position))
-                nearest_pos = nearest_node.position
-                dist = l2_dist(sample, nearest_pos)
-                rand_scale = random.uniform(0.5, 1.0)
-                new_x = nearest_pos[0] + (sample[0] - nearest_pos[0]) / dist * spacing * rand_scale
-                new_y = nearest_pos[1] + (sample[1] - nearest_pos[1]) / dist * spacing * rand_scale
-                new_node = (new_x, new_y)
-                self.add_hold(new_node, self.grasp_radius)
-                if l2_dist(new_node, goal) <= spacing:
-                    goal_reachable = True
-            self.add_hold(goal, self.grasp_radius)
-            self.goal_idx = len(self.holds) - 1
-            return goal_reachable
+        def weighted_sample():
+            grid = {}   # (cell bottom left corner coords, num holds in cell)
+            for hold in self.holds:
+                cell = (hold.position[0] // spacing, hold.position[1] // spacing)
+                grid[cell] = grid.get(cell, 0) + 1
+            min_density_cell = min(grid, key=lambda cell: grid[cell])
+            x = random.uniform(min_density_cell[0] * spacing, (min_density_cell[0] + 1) * spacing)
+            y = random.uniform(min_density_cell[1] * spacing, (min_density_cell[1] + 1) * spacing)
+            return (x, y)
+        
+        def l2_dist(p1, p2):
+            return np.linalg.norm(np.array(p1) - np.array(p2))
+        
+        # RRT
+        while len(self.holds) < num_holds:
+            if random.random() < goal_bias:
+                sample = weighted_sample()
+            else:
+                sample = goal
+            nearest_node = min(self.holds, key=lambda h: l2_dist(sample, h.position))
+            nearest_pos = nearest_node.position
+            dist = l2_dist(sample, nearest_pos)
+            rand_scale = random.uniform(0.5, 1.0)
+            new_x = nearest_pos[0] + (sample[0] - nearest_pos[0]) / dist * spacing * rand_scale
+            new_y = nearest_pos[1] + (sample[1] - nearest_pos[1]) / dist * spacing * rand_scale
+            new_node = (new_x, new_y)
+            self.add_hold(new_node, self.grasp_radius)
+            if l2_dist(new_node, goal) <= spacing:
+                goal_reachable = True
+        self.add_hold(goal, self.grasp_radius)
+        self.goal_idx = len(self.holds) - 1
+        
+        # self.xmin -= spacing + 50
+        # self.xmax += spacing+ 50
+        # self.ymin -= spacing+ 50
+        # self.ymax += spacing+ 50
+        
+        return goal_reachable
+        
+        
+    def generate_random_uniform(self, bounds, start, goal, num_holds, seed=17):
+        self.xmin, self.xmax, self.ymin, self.ymax = bounds
+        random.seed(seed)
+        
+        self.add_hold(start, self.grasp_radius)
+        self.add_hold(goal, self.grasp_radius)
+        self.start_idx = 0
+        self.goal_idx = 1
+        while len(self.holds) < num_holds:
+            x = random.uniform(self.xmin, self.xmax)
+            y = random.uniform(self.ymin, self.ymax)
+            self.add_hold((x,y),self.grasp_radius)
+        
+        
+    def get_relative_position(self, base_hold_index, other_hold_index):
+        assert base_hold_index is not None
+        assert other_hold_index is not None
+        return self.holds[int(other_hold_index)].position - self.holds[int(base_hold_index)].position
+    
     
     def plot(self, path):
         fig, ax = plt.subplots(figsize=(8, 6))
