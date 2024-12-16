@@ -180,7 +180,15 @@ class AcrobotVisualizer:
             # Unnecessary redraw of holds:
             # self.hold_visuals[hi][0].get_path().vertices[:, 0] = self.hold_points[0,:]*self.env.holds[hi].size + self.env.holds[hi].position[0]
             # self.hold_visuals[hi][0].get_path().vertices[:, 1] = self.hold_points[1,:]*self.env.holds[hi].size + self.env.holds[hi].position[1]
-            
+       
+    def draw_path(self, paths):
+        for idx, (label, path) in enumerate(paths.items()):
+            if path:
+                path_positions = [self.env.holds[i].position for i in path]
+                x_coords, y_coords = zip(*path_positions)
+                self.ax.plot(x_coords, y_coords, label=label)
+        self.ax.legend()
+                 
     
 
 
