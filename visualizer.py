@@ -188,6 +188,9 @@ class AcrobotVisualizer:
                 x_coords, y_coords = zip(*path_positions)
                 self.ax.plot(x_coords, y_coords, label=label)
         self.ax.legend()
+        self.ax.set_title("A* Paths")
+        self.ax.set_xlabel("X (m)")
+        self.ax.set_ylabel("Y (m)")
                  
     
 
